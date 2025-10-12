@@ -6,7 +6,7 @@ pub fn add_contributor(ctx: Context<AddContributor>, contributor_pubkey: Pubkey)
     let team_wallet = &mut ctx.accounts.team_wallet;
     
     require!(
-        team_wallet.contributors.len() < 10,
+        team_wallet.contributors.len() < 15,
         TeamWalletError::MaxContributorsReached
     );
     

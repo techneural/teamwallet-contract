@@ -6,7 +6,7 @@ pub fn add_voter(ctx: Context<AddVoter>, voter_pubkey: Pubkey) -> Result<()> {
     let team_wallet = &mut ctx.accounts.team_wallet;
     
     require!(
-        team_wallet.voters.len() < 10,
+        team_wallet.voters.len() < 15,
         TeamWalletError::MaxVotersReached
     );
     

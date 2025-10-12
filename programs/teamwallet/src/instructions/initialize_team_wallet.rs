@@ -1,17 +1,48 @@
 use anchor_lang::prelude::*;
-use crate::state::TeamWallet;
+use crate::{errors::TeamWalletError, state::TeamWallet};
 
 pub fn initialize_team_wallet(
     ctx: Context<InitializeTeamWallet>,
     name: String,
     vote_threshold: u8,
+    voters: Vec<Pubkey>, 
 ) -> Result<()> {
     let team_wallet = &mut ctx.accounts.team_wallet;
-    team_wallet.owner = ctx.accounts.owner.key();
+
+    // Validate limits (14 additional voters max, plus owner = 11 total max)
+    require!(
+        voters.len() <= 15,
+        TeamWalletError::MaxVotersReached
+    );
+
+    // Check for duplicates in voters list
+    let mut unique_voters = voters.clone();
+    unique_voters.sort();
+    unique_voters.dedup();
+    require!(
+        unique_voters.len() == voters.len(),
+        TeamWalletError::DuplicateVoter
+    );
+    
+    // Check if owner is in voters list (owner is automatically added)
+    let owner_key = ctx.accounts.owner.key();
+    require!(
+        !voters.contains(&owner_key),
+        TeamWalletError::OwnerInMembersList
+    );
+
+    team_wallet.owner = owner_key;
     team_wallet.name = name;
     team_wallet.vote_threshold = vote_threshold;
-    team_wallet.voter_count = 1;
-    team_wallet.voters = vec![ctx.accounts.owner.key()];
+
+
+   // Owner is always the first voter
+    let mut all_voters = vec![owner_key];
+    all_voters.extend(voters);
+    team_wallet.voters = all_voters;
+    team_wallet.voter_count = team_wallet.voters.len() as u8;
+
+    team_wallet.contributors = vec![];
     team_wallet.bump = ctx.bumps.team_wallet;
     
     msg!("Team wallet initialized by owner: {}", ctx.accounts.owner.key());
@@ -24,7 +55,7 @@ pub struct InitializeTeamWallet<'info> {
     #[account(
         init,
         payer = owner,
-        space = 8 + 32 + 36 + 1 + 1 + 324 + 1,
+        space = 8 + 32 + 36 + 1 + 1 + 324 + 324 + 1,
         seeds = [b"team_wallet", owner.key().as_ref(), name.as_bytes()],
         bump
     )]

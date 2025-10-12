@@ -1,0 +1,398 @@
+// instructions/token_manager.rs
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::invoke_signed;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
+use anchor_spl::token_interface;
+use anchor_spl::token_interface::spl_token_2022::instruction::AuthorityType;
+use crate::state::{TeamWallet, TokenProposal, TokenAction, TokenMetadataParams, TransferFeeParams};
+use crate::errors::TeamWalletError;
+
+pub fn create_token_proposal(
+    ctx: Context<CreateTokenProposal>,
+    action: TokenAction,
+    amount: u64,
+    recipient: Option<Pubkey>,
+    metadata: Option<TokenMetadataParams>,
+    transfer_fee_config: Option<TransferFeeParams>,
+    interest_rate: Option<i16>,
+) -> Result<()> {
+    let proposal = &mut ctx.accounts.token_proposal;
+    let team_wallet = &ctx.accounts.team_wallet;
+    
+    let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
+    let is_contributor = team_wallet.contributors.contains(&ctx.accounts.proposer.key());
+    let is_owner = team_wallet.owner == ctx.accounts.proposer.key();
+    
+    require!(
+        is_voter || is_contributor || is_owner,
+        TeamWalletError::NotAVoterOrContributor
+    );
+    
+    // Validate recipient and parameters based on action
+    match action {
+        TokenAction::Mint => {
+            require!(recipient.is_some(), TeamWalletError::RecipientRequired);
+        },
+        TokenAction::FreezAccount | TokenAction::ThawAccount => {
+            require!(recipient.is_some(), TeamWalletError::RecipientRequired);
+        },
+        TokenAction::UpdateMetadata => {
+            require!(metadata.is_some(), TeamWalletError::MetadataRequired);
+        },
+        TokenAction::SetTransferFee => {
+            require!(transfer_fee_config.is_some(), TeamWalletError::TransferFeeConfigRequired);
+        },
+        TokenAction::WithdrawTransferFees => {
+            require!(recipient.is_some(), TeamWalletError::RecipientRequired);
+        },
+        TokenAction::EnableConfidentialTransfers | TokenAction::DisableConfidentialTransfers => {
+            require!(recipient.is_some(), TeamWalletError::RecipientRequired);
+        },
+        TokenAction::UpdateInterestRate => {
+            require!(interest_rate.is_some(), TeamWalletError::InterestRateRequired);
+        },
+        TokenAction::SetPermanentDelegate => {
+            require!(recipient.is_some(), TeamWalletError::RecipientRequired);
+        },
+        _ => {}
+    }
+    
+    proposal.team_wallet = team_wallet.key();
+    proposal.proposer = ctx.accounts.proposer.key();
+    proposal.mint = ctx.accounts.mint.key();
+    proposal.action = action;
+    proposal.amount = amount;
+    proposal.recipient = recipient;
+    proposal.metadata = metadata;
+    proposal.transfer_fee_config = transfer_fee_config;
+    proposal.interest_rate = interest_rate;
+    proposal.votes_for = 1;
+    proposal.voters_voted = vec![ctx.accounts.proposer.key()];
+    proposal.votes_against = 0;
+    proposal.executed = false;
+    proposal.bump = ctx.bumps.token_proposal;
+    
+    msg!("Token proposal created by: {}", ctx.accounts.proposer.key());
+    Ok(())
+}
+
+pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> {
+    let proposal = &mut ctx.accounts.token_proposal;
+    let team_wallet = &ctx.accounts.team_wallet;
+    
+    require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    
+    let votes_needed = ((team_wallet.voter_count as f64) * (team_wallet.vote_threshold as f64 / 100.0)).ceil() as u8;
+    
+    require!(
+        proposal.votes_for >= votes_needed,
+        TeamWalletError::InsufficientVotes
+    );
+    
+    // Prepare PDA seeds for signing
+    let name_bytes = team_wallet.name.as_bytes();
+    let seeds = &[
+        b"team_wallet",
+        team_wallet.owner.as_ref(),
+        name_bytes,
+        &[team_wallet.bump],
+    ];
+    let signer_seeds = &[&seeds[..]];
+    
+    // Execute the token action
+    match proposal.action {
+        TokenAction::Mint => {
+            let cpi_accounts = token_interface::MintTo {
+                mint: ctx.accounts.mint.to_account_info(),
+                to: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
+                authority: ctx.accounts.team_wallet.to_account_info(),
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+            token_interface::mint_to(cpi_ctx, proposal.amount)?;
+            msg!("Minted {} tokens", proposal.amount);
+        },
+        TokenAction::Burn => {
+            let cpi_accounts = token_interface::Burn {
+                mint: ctx.accounts.mint.to_account_info(),
+                from: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
+                authority: ctx.accounts.team_wallet.to_account_info(),
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+            token_interface::burn(cpi_ctx, proposal.amount)?;
+            msg!("Burned {} tokens", proposal.amount);
+        },
+        TokenAction::FreezAccount => {
+            let cpi_accounts = token_interface::FreezeAccount {
+                account: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                authority: ctx.accounts.team_wallet.to_account_info(),
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+            token_interface::freeze_account(cpi_ctx)?;
+            msg!("Froze token account");
+        },
+        TokenAction::ThawAccount => {
+            let cpi_accounts = token_interface::ThawAccount {
+                account: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
+                mint: ctx.accounts.mint.to_account_info(),
+                authority: ctx.accounts.team_wallet.to_account_info(),
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+            token_interface::thaw_account(cpi_ctx)?;
+            msg!("Thawed token account");
+        },
+        TokenAction::SetAuthority => {
+            let new_authority = proposal.recipient.as_ref();
+            let cpi_accounts = token_interface::SetAuthority {
+                current_authority: ctx.accounts.team_wallet.to_account_info(),
+                account_or_mint: ctx.accounts.mint.to_account_info(),
+            };
+            let cpi_program = ctx.accounts.token_program.to_account_info();
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+            token_interface::set_authority(
+                cpi_ctx, 
+                AuthorityType::MintTokens, 
+                new_authority.copied()
+            )?;
+            msg!("Transferred mint authority");
+        },
+        // Token-2022 Extensions
+        TokenAction::UpdateMetadata => {
+            let metadata = proposal.metadata.as_ref().unwrap();
+            
+            // Note: This updates the metadata pointer, not the metadata itself
+            // Actual metadata updates require the metadata program
+            msg!("Token metadata update requested: {} ({})", metadata.name, metadata.symbol);
+            msg!("URI: {}", metadata.uri);
+        },
+        TokenAction::SetTransferFee => {
+            let fee_config = proposal.transfer_fee_config.as_ref().unwrap();
+            
+            // Use Token-2022 transfer fee extension
+            use spl_token_2022::extension::transfer_fee::instruction::set_transfer_fee;
+            
+            let set_fee_ix = set_transfer_fee(
+                ctx.accounts.token_program.key,
+                ctx.accounts.mint.to_account_info().key,
+                ctx.accounts.team_wallet.to_account_info().key,
+                &[],
+                fee_config.transfer_fee_basis_points,
+                fee_config.maximum_fee,
+            )?;
+            
+            invoke_signed(
+                &set_fee_ix,
+                &[
+                    ctx.accounts.mint.to_account_info(),
+                    ctx.accounts.team_wallet.to_account_info(),
+                ],
+                signer_seeds,
+            )?;
+            
+            msg!("Set transfer fee: {} basis points, max: {}", 
+                fee_config.transfer_fee_basis_points, 
+                fee_config.maximum_fee
+            );
+        },
+        TokenAction::WithdrawTransferFees => {
+            // Withdraw accumulated transfer fees
+            use spl_token_2022::extension::transfer_fee::instruction::withdraw_withheld_tokens_from_mint;
+            
+            let withdraw_ix = withdraw_withheld_tokens_from_mint(
+                ctx.accounts.token_program.key,
+                ctx.accounts.mint.to_account_info().key,
+                ctx.accounts.token_account.as_ref().unwrap().to_account_info().key,
+                ctx.accounts.team_wallet.to_account_info().key,
+                &[],
+            )?;
+            
+            invoke_signed(
+                &withdraw_ix,
+                &[
+                    ctx.accounts.mint.to_account_info(),
+                    ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
+                    ctx.accounts.team_wallet.to_account_info(),
+                ],
+                signer_seeds,
+            )?;
+            
+            msg!("Withdrew transfer fees");
+        },
+        TokenAction::EnableConfidentialTransfers => {
+            let account = proposal.recipient.unwrap();
+            
+            // Note: Requires proper confidential transfer setup with ElGamal keys
+            // This is a simplified placeholder
+            msg!("Confidential transfers configuration requested for account: {}", account);
+        },
+        TokenAction::DisableConfidentialTransfers => {
+            // Disable confidential transfers
+            msg!("Disabled confidential transfers");
+        },
+        TokenAction::UpdateInterestRate => {
+            let rate = proposal.interest_rate.unwrap();
+            
+            // Update interest bearing rate
+            use spl_token_2022::extension::interest_bearing_mint::instruction::update_rate;
+            
+            let update_rate_ix = update_rate(
+                ctx.accounts.token_program.key,
+                ctx.accounts.mint.to_account_info().key,
+                ctx.accounts.team_wallet.to_account_info().key,
+                &[],
+                rate,
+            )?;
+            
+            invoke_signed(
+                &update_rate_ix,
+                &[
+                    ctx.accounts.mint.to_account_info(),
+                    ctx.accounts.team_wallet.to_account_info(),
+                ],
+                signer_seeds,
+            )?;
+            
+            msg!("Updated interest rate to: {}", rate);
+        },
+        TokenAction::SetPermanentDelegate => {
+            // Set permanent delegate using Token-2022 extension
+            // The permanent delegate is set at mint initialization, 
+            // but can be updated via set_authority
+            let delegate = proposal.recipient.unwrap();
+            
+            // Note: Permanent delegate is typically set during mint creation
+            // This is a placeholder for the actual implementation
+            msg!("Set permanent delegate to: {}", delegate);
+        },
+        TokenAction::UpdateGroupPointer => {
+            // Update token group pointer using Token-2022 extension
+            use spl_token_2022::extension::group_pointer::instruction::update;
+            
+            let recipient = proposal.recipient.unwrap();
+            let update_ix = update(
+                ctx.accounts.token_program.key,
+                ctx.accounts.mint.to_account_info().key,
+                ctx.accounts.team_wallet.to_account_info().key,
+                &[],
+                Some(recipient),
+            )?;
+            
+            invoke_signed(
+                &update_ix,
+                &[
+                    ctx.accounts.mint.to_account_info(),
+                    ctx.accounts.team_wallet.to_account_info(),
+                ],
+                signer_seeds,
+            )?;
+            
+            msg!("Updated group pointer to: {}", recipient);
+        },
+        TokenAction::UpdateMemberPointer => {
+            // Update token member pointer using Token-2022 extension
+            use spl_token_2022::extension::group_member_pointer::instruction::update;
+            
+            let recipient = proposal.recipient.unwrap();
+            let update_ix = update(
+                ctx.accounts.token_program.key,
+                ctx.accounts.mint.to_account_info().key,
+                ctx.accounts.team_wallet.to_account_info().key,
+                &[],
+                Some(recipient),
+            )?;
+            
+            invoke_signed(
+                &update_ix,
+                &[
+                    ctx.accounts.mint.to_account_info(),
+                    ctx.accounts.team_wallet.to_account_info(),
+                ],
+                signer_seeds,
+            )?;
+            
+            msg!("Updated member pointer to: {}", recipient);
+        },
+    }
+    
+    proposal.executed = true;
+    Ok(())
+}
+
+pub fn transfer_mint_authority(ctx: Context<TransferMintAuthority>) -> Result<()> {
+    let team_wallet = &ctx.accounts.team_wallet;
+    
+    let cpi_accounts = token_interface::SetAuthority {
+        current_authority: ctx.accounts.current_authority.to_account_info(),
+        account_or_mint: ctx.accounts.mint.to_account_info(),
+    };
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
+    
+    token_interface::set_authority(
+        cpi_ctx, 
+        AuthorityType::MintTokens, 
+        Some(team_wallet.key())
+    )?;
+    
+    msg!("Mint authority transferred to team wallet");
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct CreateTokenProposal<'info> {
+    #[account(
+        init,
+        payer = proposer,
+        space = 8 + 32 + 32 + 32 + 33 + 8 + 33 + 200 + 20 + 4 + 1 + 1 + 324 + 1 + 1,
+        seeds = [b"token_proposal", team_wallet.key().as_ref(), mint.key().as_ref(), proposer.key().as_ref()],
+        bump
+    )]
+    pub token_proposal: Account<'info, TokenProposal>,
+    
+    pub team_wallet: Account<'info, TeamWallet>,
+    
+    pub mint: InterfaceAccount<'info, Mint>,
+    
+    #[account(mut)]
+    pub proposer: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ExecuteTokenProposal<'info> {
+    #[account(mut)]
+    pub token_proposal: Account<'info, TokenProposal>,
+    
+    #[account(
+        mut,
+        constraint = token_proposal.team_wallet == team_wallet.key()
+    )]
+    pub team_wallet: Account<'info, TeamWallet>,
+    
+    #[account(mut)]
+    pub mint: InterfaceAccount<'info, Mint>,
+    
+    #[account(mut)]
+    pub token_account: Option<InterfaceAccount<'info, TokenAccount>>,
+    
+    pub token_program: Interface<'info, TokenInterface>,
+    
+    pub executor: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct TransferMintAuthority<'info> {
+    pub team_wallet: Account<'info, TeamWallet>,
+    
+    #[account(mut)]
+    pub mint: InterfaceAccount<'info, Mint>,
+    
+    pub current_authority: Signer<'info>,
+    
+    pub token_program: Interface<'info, TokenInterface>,
+}

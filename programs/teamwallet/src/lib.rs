@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
 declare_id!("4CTGUdAt49S9CNcUWyHyCXyYZNvg2QiLxdMrRHDUcrtj");
@@ -7,18 +8,21 @@ pub mod state;
 pub mod errors;
 
 use instructions::*;
-use errors::*;
+use crate::state::{TokenAction, TokenMetadataParams, TransferFeeParams};
 
 #[program]
 pub mod teamwallet {
+    
+
     use super::*;
 
     pub fn initialize_team_wallet(
         ctx: Context<InitializeTeamWallet>,
         name: String,
         vote_threshold: u8,
+        voters: Vec<Pubkey>,
     ) -> Result<()> {
-        instructions::initialize_team_wallet(ctx, name, vote_threshold)
+        instructions::initialize_team_wallet(ctx, name, vote_threshold, voters)
     }
 
     pub fn add_voter(ctx: Context<AddVoter>, voter_pubkey: Pubkey) -> Result<()> {
@@ -57,5 +61,40 @@ pub mod teamwallet {
 
     pub fn execute_proposal_token(ctx: Context<ExecuteProposalToken>) -> Result<()> {
         instructions::execute_proposal_token(ctx)
+    }
+
+    pub fn create_upgrade_proposal(
+        ctx: Context<CreateUpgradeProposal>,
+        new_buffer: Pubkey,
+    ) -> Result<()> {
+        instructions::create_upgrade_proposal(ctx, new_buffer)
+    }
+
+    pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<()> {
+        instructions::execute_upgrade_proposal(ctx)
+    }
+
+    pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
+        instructions::transfer_program_authority(ctx)
+    }
+
+    pub fn create_token_proposal(
+        ctx: Context<CreateTokenProposal>,
+        action: TokenAction,
+        amount: u64,
+        recipient: Option<Pubkey>,
+        metadata: Option<TokenMetadataParams>,
+        transfer_fee_config: Option<TransferFeeParams>,
+        interest_rate: Option<i16>,
+    ) -> Result<()> {
+        instructions::create_token_proposal(ctx, action, amount, recipient, metadata, transfer_fee_config, interest_rate)
+    }
+
+    pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> {
+        instructions::execute_token_proposal(ctx)
+    }
+
+    pub fn transfer_mint_authority(ctx: Context<TransferMintAuthority>) -> Result<()> {
+        instructions::transfer_mint_authority(ctx)
     }
 }

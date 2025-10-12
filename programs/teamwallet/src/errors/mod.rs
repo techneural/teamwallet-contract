@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum TeamWalletError {
-    #[msg("Maximum number of voters reached (10)")]
+    #[msg("Maximum number of voters reached (15)")]
     MaxVotersReached,
     
     #[msg("Voter already exists")]
@@ -32,7 +32,7 @@ pub enum TeamWalletError {
     #[msg("Invalid mint address")]
     InvalidMint,
     
-    #[msg("Maximum number of contributors reached (10)")]
+    #[msg("Maximum number of contributors reached (15)")]
     MaxContributorsReached,
     
     #[msg("Contributor already exists")]
@@ -52,4 +52,22 @@ pub enum TeamWalletError {
     
     #[msg("Mint address is required for token transfers")]
     MintRequired,
+    
+    #[msg("Duplicate voter in initialization list")]
+    DuplicateVoter,
+    
+    #[msg("Owner cannot be in voters list (owner is automatically a voter)")]
+    OwnerInMembersList,
+
+    #[msg("Recipient is required for this token action")]
+    RecipientRequired,
+    
+    #[msg("Metadata is required for this action")]
+    MetadataRequired,
+    
+    #[msg("Transfer fee configuration is required")]
+    TransferFeeConfigRequired,
+    
+    #[msg("Interest rate is required for this action")]
+    InterestRateRequired,
 }
