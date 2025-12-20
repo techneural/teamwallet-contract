@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-declare_id!("DmXaZjFFyxUpj7LroLpNjcphWnHpu8XoSZf2iLAEreLA");
+declare_id!("6fvZWmTGDzxdkJ64uRXxD14MwfLc1S5jZCiEtcRgfM7e");
 
 pub mod instructions;
 pub mod state;
@@ -47,8 +47,9 @@ pub mod teamwallet {
         recipient: Pubkey,
         is_token_transfer: bool,
         mint: Option<Pubkey>,
+        random_pubkey: Pubkey,
     ) -> Result<()> {
-        instructions::create_proposal(ctx, amount, recipient, is_token_transfer, mint)
+        instructions::create_proposal(ctx, amount, recipient, is_token_transfer, mint,random_pubkey)
     }
 
     pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {

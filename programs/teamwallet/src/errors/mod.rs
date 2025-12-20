@@ -84,14 +84,6 @@ pub enum TeamWalletError {
     #[msg("invalid  route data")]
     InvalidRouteData,
 
-    #[msg("Not a voter in this team wallet")]
-
-    NotAVoter,
-
-    #[msg("Already voted on this proposal")]
-
-    AlreadyVoted,
-
     #[msg("Invlid proposal data")]
    
     InvalidProposalData,
