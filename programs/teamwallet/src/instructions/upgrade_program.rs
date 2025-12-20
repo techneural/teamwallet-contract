@@ -94,7 +94,7 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
             ctx.accounts.rent.to_account_info(),
             ctx.accounts.clock.to_account_info(),
             ctx.accounts.team_wallet.to_account_info(),
-            // ctx.accounts.bpf_loader_upgradeable_program.to_account_info(),
+            ctx.accounts.bpf_loader_upgradeable_program.to_account_info(),
         ],
         signer_seeds,
     )?;
@@ -142,12 +142,13 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
 // }
 
 #[derive(Accounts)]
+#[instruction(new_buffer: Pubkey)]
 pub struct CreateUpgradeProposal<'info> {
     #[account(
         init,
         payer = proposer,
         space = 8 + 32 + 32 + 32 + 1 + 1 + 324 + 1 + 1,
-        seeds = [b"upgrade_proposal", team_wallet.key().as_ref(), proposer.key().as_ref()],
+        seeds = [b"upgrade_proposal", team_wallet.key().as_ref(),new_buffer.as_ref()],
         bump
     )]
     pub upgrade_proposal: Account<'info, UpgradeProposal>,
@@ -174,19 +175,16 @@ pub struct ExecuteUpgradeProposal<'info> {
     pub upgrade_proposal: Account<'info, UpgradeProposal>,
     
     #[account(
+        mut,
         seeds = [
         b"team_wallet",
-        team_wallet_state.owner.as_ref(),
-        team_wallet_state.name.as_bytes()
+        team_wallet.owner.as_ref(),
+        team_wallet.name.as_bytes()
     ],
-    bump = team_wallet_state.bump,
+    bump = team_wallet.bump,
+    constraint = upgrade_proposal.team_wallet == team_wallet.key()
     )]
-    pub team_wallet: AccountInfo<'info>,
-
-    #[account(
-        constraint = upgrade_proposal.team_wallet == team_wallet.key()
-    )]
-    pub team_wallet_state: Account<'info, TeamWallet>,
+    pub team_wallet: Account<'info, TeamWallet>,
     
     /// CHECK: The program to be upgraded
     pub program_id: AccountInfo<'info>,
@@ -207,8 +205,8 @@ pub struct ExecuteUpgradeProposal<'info> {
     pub clock: Sysvar<'info, Clock>,
 
     
-    // /// CHECK: BPF Loader Upgradeable program
-    // pub bpf_loader_upgradeable_program: AccountInfo<'info>,
+    /// CHECK: BPF Loader Upgradeable program
+    pub bpf_loader_upgradeable_program: AccountInfo<'info>,
     
     // pub executor: Signer<'info>,
 }
