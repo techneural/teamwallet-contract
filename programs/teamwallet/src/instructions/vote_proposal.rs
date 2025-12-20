@@ -22,7 +22,7 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
     
     require!(
         !proposal.executed,
-        TeamWalletError::ProposalAlreadyExecuted
+        TeamWalletError::ProposalAlreadyExecuted    
     );
     
     if vote_for {

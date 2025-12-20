@@ -76,4 +76,68 @@ pub enum TeamWalletError {
     
     #[msg("Interest rate is required for this action")]
     InterestRateRequired,
+
+    #[msg ("InvalidRemainingAccounts")]
+    InvalidRemainingAccounts,
+  
+
+    #[msg("invalid  route data")]
+    InvalidRouteData,
+
+    #[msg("Not a voter in this team wallet")]
+
+    NotAVoter,
+
+    #[msg("Already voted on this proposal")]
+
+    AlreadyVoted,
+
+    #[msg("Invlid proposal data")]
+   
+    InvalidProposalData,
+
+    #[msg("Input mint required for swap")]
+
+    InputMintRequired,
+
+    #[msg("Output mint required for swap")]
+
+    OutputMintRequired,
+
+    #[msg("Minimum output amount required")]
+
+    MinOutputRequired,
+
+    #[msg("Invalid minimum output amount")]
+
+    InvalidMinOutput,
+
+    #[msg("Cannot swap same mint")]
+
+    SameMintSwap,
+
+    #[msg("Slippage too high")]
+
+    SlippageTooHigh,
+
+    #[msg("Invalid token account owner")]
+
+    InvalidTokenAccountOwner,
+
+    #[msg("Insufficient balance")]
+
+    InsufficientBalance,
+
+    #[msg("Swap failed")]
+
+    SwapFailed,
+
+    #[msg("Slippage exceeded")]
+
+    SlippageExceeded,
+
+    #[msg("Invalid amount")]
+
+    InvalidAmount,
+
 }
