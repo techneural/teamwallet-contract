@@ -9,10 +9,14 @@ pub fn initialize_team_wallet(
 ) -> Result<()> {
     let team_wallet = &mut ctx.accounts.team_wallet;
 
+        msg!("--- Initializing team wallet ---");
+
+
     // Validate limits (14 additional voters max, plus owner = 11 total max)
     require!(
         voters.len() <= 15,
         TeamWalletError::MaxVotersReached
+        
     );
 
     // Check for duplicates in voters list
@@ -66,3 +70,5 @@ pub struct InitializeTeamWallet<'info> {
     
     pub system_program: Program<'info, System>,
 }
+
+

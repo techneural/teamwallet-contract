@@ -26,3 +26,4 @@ pub struct RemoveContributor<'info> {
     
     pub owner: Signer<'info>,
 }
+

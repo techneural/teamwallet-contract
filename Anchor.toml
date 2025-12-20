@@ -6,16 +6,15 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-teamwallet = "757e2erDUSUJsRzTXic54JGnddwfY4swFC1t1vrJEq8r"
+teamwallet = "5moWiUkB8eVNAG7yqSrAG3pk7FNhADMCvcSYw8XMQnnU"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "devnet"
-wallet = "~/Desktop/contract_program/teamwallet-contract/phantom-wallet.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
 
-[hooks]
