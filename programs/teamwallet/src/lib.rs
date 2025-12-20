@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-declare_id!("4CTGUdAt49S9CNcUWyHyCXyYZNvg2QiLxdMrRHDUcrtj");
+declare_id!("757e2erDUSUJsRzTXic54JGnddwfY4swFC1t1vrJEq8r");
 
 pub mod instructions;
 pub mod state;
@@ -74,12 +74,13 @@ pub mod teamwallet {
         instructions::execute_upgrade_proposal(ctx)
     }
 
-    pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
-        instructions::transfer_program_authority(ctx)
-    }
+    // pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
+    //     instructions::transfer_program_authority(ctx)
+    // }
 
     pub fn create_token_proposal(
         ctx: Context<CreateTokenProposal>,
+        proposal_id: Pubkey,
         action: TokenAction,
         amount: u64,
         recipient: Option<Pubkey>,
@@ -87,7 +88,7 @@ pub mod teamwallet {
         transfer_fee_config: Option<TransferFeeParams>,
         interest_rate: Option<i16>,
     ) -> Result<()> {
-        instructions::create_token_proposal(ctx, action, amount, recipient, metadata, transfer_fee_config, interest_rate)
+        instructions::create_token_proposal(ctx, proposal_id,action, amount, recipient, metadata, transfer_fee_config, interest_rate)
     }
 
     pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> {

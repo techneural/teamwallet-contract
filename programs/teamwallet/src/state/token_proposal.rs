@@ -21,6 +21,7 @@ pub enum TokenAction {
 
 #[account]
 pub struct TokenProposal {
+    pub proposal_id : Pubkey,
     pub team_wallet: Pubkey,
     pub proposer: Pubkey,
     pub mint: Pubkey,

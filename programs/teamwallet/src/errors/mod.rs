@@ -25,6 +25,12 @@ pub enum TeamWalletError {
     
     #[msg("Insufficient votes to execute proposal")]
     InsufficientVotes,
+
+     #[msg("Invalid upgrade buffer")]
+    InvalidUpgradeBuffer,
+
+    #[msg("Invalid program data account")]
+    InvalidProgramData,
     
     #[msg("Invalid proposal type")]
     InvalidProposalType,

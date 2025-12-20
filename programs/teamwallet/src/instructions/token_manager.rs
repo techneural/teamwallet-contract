@@ -9,6 +9,7 @@ use crate::errors::TeamWalletError;
 
 pub fn create_token_proposal(
     ctx: Context<CreateTokenProposal>,
+    proposal_id: Pubkey,
     action: TokenAction,
     amount: u64,
     recipient: Option<Pubkey>,
@@ -57,6 +58,7 @@ pub fn create_token_proposal(
         _ => {}
     }
     
+    proposal.proposal_id = proposal_id;
     proposal.team_wallet = team_wallet.key();
     proposal.proposer = ctx.accounts.proposer.key();
     proposal.mint = ctx.accounts.mint.key();
@@ -343,12 +345,13 @@ pub fn transfer_mint_authority(ctx: Context<TransferMintAuthority>) -> Result<()
 }
 
 #[derive(Accounts)]
+#[instruction(proposal_id: Pubkey)]
 pub struct CreateTokenProposal<'info> {
     #[account(
         init,
         payer = proposer,
-        space = 8 + 32 + 32 + 32 + 33 + 8 + 33 + 200 + 20 + 4 + 1 + 1 + 324 + 1 + 1,
-        seeds = [b"token_proposal", team_wallet.key().as_ref(), mint.key().as_ref(), proposer.key().as_ref()],
+        space = 8 + 32 + 32 + 32 + 32 + 1 + 8 + 33 + 255 + 11 + 3 + 1 + 1 + 324 + 1 + 1,
+        seeds = [b"token_proposal", proposal_id.as_ref(), ],
         bump
     )]
     pub token_proposal: Account<'info, TokenProposal>,
