@@ -174,16 +174,19 @@ pub struct ExecuteUpgradeProposal<'info> {
     pub upgrade_proposal: Account<'info, UpgradeProposal>,
     
     #[account(
-        mut,
         seeds = [
         b"team_wallet",
-        team_wallet.owner.as_ref(),
-        team_wallet.name.as_bytes()
+        team_wallet_state.owner.as_ref(),
+        team_wallet_state.name.as_bytes()
     ],
-    bump = team_wallet.bump,
+    bump = team_wallet_state.bump,
+    )]
+    pub team_wallet: AccountInfo<'info>,
+
+    #[account(
         constraint = upgrade_proposal.team_wallet == team_wallet.key()
     )]
-    pub team_wallet: Account<'info, TeamWallet>,
+    pub team_wallet_state: Account<'info, TeamWallet>,
     
     /// CHECK: The program to be upgraded
     pub program_id: AccountInfo<'info>,
