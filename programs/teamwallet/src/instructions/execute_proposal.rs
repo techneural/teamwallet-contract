@@ -10,8 +10,14 @@ pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
     require!(!proposal.is_token_transfer, TeamWalletError::InvalidProposalType);
    
-    let votes_needed = ((team_wallet.voter_count as f64) * (team_wallet.vote_threshold as f64 / 100.0)).ceil() as u8;
-   
+    let total_voters =
+    1 + team_wallet.contributors.len() as u8;
+ 
+    let votes_needed =
+    ((total_voters as f64)
+        * (team_wallet.vote_threshold as f64 / 100.0))
+        .ceil() as u8;
+    
     require!(
         proposal.votes_for >= votes_needed,
         TeamWalletError::InsufficientVotes
@@ -33,8 +39,14 @@ pub fn execute_proposal_token(ctx: Context<ExecuteProposalToken>) -> Result<()> 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
     require!(proposal.is_token_transfer, TeamWalletError::InvalidProposalType);
    
-    let votes_needed = ((team_wallet.voter_count as f64) * (team_wallet.vote_threshold as f64 / 100.0)).ceil() as u8;
-   
+    let total_voters =
+    1 + team_wallet.contributors.len() as u8;
+ 
+    let votes_needed =
+    ((total_voters as f64)
+        * (team_wallet.vote_threshold as f64 / 100.0))
+        .ceil() as u8;
+    
     require!(
         proposal.votes_for >= votes_needed,
         TeamWalletError::InsufficientVotes
