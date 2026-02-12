@@ -59,7 +59,7 @@ pub struct InitializeTeamWallet<'info> {
     #[account(
         init,
         payer = owner,
-        space = 8 + 32 + 36 + 1 + 1 + 324 + 324 + 1,
+        space = 8 + 32 + 36 + 1 + 1 + 484 + 484 + 1,
         seeds = [b"team_wallet", owner.key().as_ref(), name.as_bytes()],
         bump
     )]
