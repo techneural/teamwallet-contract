@@ -11,7 +11,7 @@ pub fn add_voter(ctx: Context<AddVoter>, voter_pubkey: Pubkey) -> Result<()> {
     );
     
     require!(
-        !team_wallet.voters.contains(&voter_pubkey),
+        !team_wallet.voters.contains(&voter_pubkey)  ,
         TeamWalletError::VoterAlreadyExists
     );
     

@@ -14,11 +14,11 @@ pub fn add_contributor(ctx: Context<AddContributor>, contributor_pubkey: Pubkey)
         !team_wallet.contributors.contains(&contributor_pubkey),
         TeamWalletError::ContributorAlreadyExists
     );
-    
-    require!(
-        !team_wallet.voters.contains(&contributor_pubkey),
-        TeamWalletError::AlreadyAVoter
-    );
+      
+    // require!( 
+    //     !team_wallet.voters.contains(&contributor_pubkey),
+    //     TeamWalletError::AlreadyAVoter
+    // );
     
     team_wallet.contributors.push(contributor_pubkey);
     

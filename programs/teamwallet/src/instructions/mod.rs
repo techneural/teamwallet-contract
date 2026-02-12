@@ -10,6 +10,8 @@ pub mod execute_proposal;
 pub mod execute_swap_proposal;  
 pub mod upgrade_program;
 pub mod token_manager;
+pub mod vote_swap_proposal;
+pub mod vote_token_proposal; //add
  
 pub use initialize_team_wallet::*;
 pub use add_voter::*;
@@ -23,4 +25,6 @@ pub use execute_proposal::*;
 pub use execute_swap_proposal::*; 
 pub use upgrade_program::*;
 pub use token_manager::*; 
- 
+pub use vote_swap_proposal::*;
+pub use vote_token_proposal::*;
+

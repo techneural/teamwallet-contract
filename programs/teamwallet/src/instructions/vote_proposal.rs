@@ -6,15 +6,18 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
     
-    let is_voter = team_wallet.voters.contains(&ctx.accounts.voter.key());
-    let is_contributor = team_wallet.contributors.contains(&ctx.accounts.voter.key());
-    let is_owner = team_wallet.owner == ctx.accounts.voter.key();
+    // let is_voter = team_wallet.voters.contains(&ctx.accounts.voter.key());
+    // let is_contributor = team_wallet.contributors.contains(&ctx.accounts.voter.key());
+    // let is_owner = team_wallet.owner == ctx.accounts.voter.key();
     
+    // require!(
+    //     is_voter || is_contributor || is_owner,
+    //     TeamWalletError::NotAuthorizedToVote
+    // );
     require!(
-        is_voter || is_contributor || is_owner,
-        TeamWalletError::NotAuthorizedToVote
-    );
-    
+    proposal.snapshot_voters.contains(&ctx.accounts.voter.key()),
+    TeamWalletError::NotAuthorizedToVote
+     );
     require!(
         !proposal.voters_voted.contains(&ctx.accounts.voter.key()),
         TeamWalletError::AlreadyVoted

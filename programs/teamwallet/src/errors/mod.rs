@@ -1,9 +1,19 @@
+// errors.rs
+
 use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum TeamWalletError {
     #[msg("Maximum number of voters reached (15)")]
     MaxVotersReached,
+
+    #[msg("Authority Missing")]
+
+    FreezeAuthorityMissing,
+
+    #[msg("Minvalid authority type")]
+
+    InvalidAuthorityType,
     
     #[msg("Voter already exists")]
     VoterAlreadyExists,

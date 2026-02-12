@@ -48,7 +48,10 @@ pub fn create_proposal(
     }
  
     proposal.team_wallet = team_wallet.key();
-
+    proposal.snapshot_voters = team_wallet.voters.clone();
+    proposal.snapshot_voters.extend(team_wallet.contributors.clone());
+    proposal.snapshot_voters.push(team_wallet.owner);
+  
     proposal.proposer = ctx.accounts.proposer.key();
 
     proposal.amount = amount;
@@ -60,6 +63,7 @@ pub fn create_proposal(
     proposal.mint = mint;
  
     proposal.votes_for = 1;
+
 
     proposal.voters_voted = vec![ctx.accounts.proposer.key()];
 

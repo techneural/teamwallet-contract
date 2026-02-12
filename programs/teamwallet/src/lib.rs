@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-declare_id!("6fvZWmTGDzxdkJ64uRXxD14MwfLc1S5jZCiEtcRgfM7e");
+declare_id!("EA61Ai5QTJsGqKGKjcXyNd6QVkhCympnPXZeEGzndK1P");
 
 pub mod instructions;
 pub mod state;
@@ -9,6 +9,7 @@ pub mod errors;
 
 use instructions::*;
 use crate::state::{TokenAction, TokenMetadataParams, TransferFeeParams};
+
 
 #[program]
 pub mod teamwallet {
@@ -56,6 +57,13 @@ pub mod teamwallet {
         instructions::vote_proposal(ctx, vote_for)
     }
 
+    pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> Result<()> {
+
+    instructions::vote_token_proposal(ctx, vote_for)  // CORRECT
+
+}
+ 
+
     pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
         instructions::execute_proposal_sol(ctx)
     }
@@ -75,9 +83,9 @@ pub mod teamwallet {
         instructions::execute_upgrade_proposal(ctx)
     }
 
-    // pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
-    //     instructions::transfer_program_authority(ctx)
-    // }
+    pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
+        instructions::transfer_program_authority(ctx)
+    }
 
     pub fn create_token_proposal(
         ctx: Context<CreateTokenProposal>,
@@ -98,5 +106,41 @@ pub mod teamwallet {
 
     pub fn transfer_mint_authority(ctx: Context<TransferMintAuthority>) -> Result<()> {
         instructions::transfer_mint_authority(ctx)
+    }
+
+
+        /// Create Swap Proposal (stores input mint, output mint, amount, slippage)
+    pub fn create_swap_proposal(
+        ctx: Context<CreateSwapProposal>,
+        amount_in: u64,
+        input_mint: Pubkey,
+        output_mint: Pubkey,
+        min_output_amount: u64,
+        slippage_bps: u16,
+    ) -> Result<()> {
+        instructions::create_swap_proposal(
+            ctx,
+            amount_in,
+            input_mint,
+            output_mint,
+            min_output_amount,
+            slippage_bps,
+        )
+    }
+
+    /// Vote on Swap Proposal
+    pub fn vote_swap_proposal(
+        ctx: Context<VoteSwapProposal>,
+        vote_for: bool,
+    ) -> Result<()> {
+        instructions::vote_swap_proposal(ctx, vote_for)
+    }
+
+    /// Execute Swap using Jupiter program route instructions
+    pub fn execute_swap_proposal(
+        ctx: Context<ExecuteSwapProposal>,
+        route_instructions: Vec<Vec<u8>>, 
+    ) -> Result<()> {
+        instructions::execute_swap_proposal(ctx, route_instructions)
     }
 }

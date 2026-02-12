@@ -1,118 +1,84 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
-
-use crate::state::{TeamWallet, SwapProposal};
+use crate::state::{TeamWallet, Proposal};
 use crate::errors::TeamWalletError;
 
+pub fn create_swap_proposal(
+    ctx: Context<CreateSwapProposal>,
+    amount_in: u64,
+    input_mint: Pubkey,
+    output_mint: Pubkey,
+    min_output_amount: u64,
+    slippage_bps: u16,
+) -> Result<()> {
+    let proposal = &mut ctx.accounts.proposal;
+    let wallet = &ctx.accounts.team_wallet;
+
+    // Access control
+    let proposer = ctx.accounts.proposer.key();
+    require!(
+        wallet.owner == proposer
+            || wallet.voters.contains(&proposer)
+            || wallet.contributors.contains(&proposer),
+        TeamWalletError::NotAVoterOrContributor
+    );
+
+    // Validate inputs
+    require!(amount_in > 0, TeamWalletError::InvalidAmount);
+    require!(min_output_amount > 0, TeamWalletError::InvalidMinOutput);
+    require!(input_mint != output_mint, TeamWalletError::SameMintSwap);
+    require!(slippage_bps <= 1000, TeamWalletError::SlippageTooHigh); // 10%
+
+    // Save proposal data
+    proposal.team_wallet = wallet.key();
+    proposal.proposer = proposer;
+    proposal.amount = amount_in;
+    proposal.input_mint = Some(input_mint);
+    proposal.output_mint = Some(output_mint);
+    proposal.min_output_amount = Some(min_output_amount);
+    proposal.slippage_bps = Some(slippage_bps);
+
+    proposal.is_token_transfer = false;
+    proposal.mint = None;
+    proposal.is_swap_proposal = true;
+
+    // Voting
+    proposal.votes_for = 1;
+    proposal.votes_against = 0;
+    proposal.voters_voted = vec![proposer];
+    proposal.executed = false;
+    proposal.ready_to_execute = false;
+
+    proposal.bump = ctx.bumps.proposal;
+    proposal.nonce = wallet.proposal_count;
+
+    Ok(())
+}
 
 #[derive(Accounts)]
-#[instruction(proposal_id: Pubkey)]
-pub struct CreateSwapProposal<'info> {
-    // Team wallet that owns this swap proposal
-    #[account(
-        mut,
-        seeds = [b"team_wallet", team_wallet.name.as_bytes()],
-        bump = team_wallet.bump,
-    )]
-    pub team_wallet: Account<'info, TeamWallet>,
+#[instruction(amount_in: u64, input_mint: Pubkey, output_mint: Pubkey)]
 
-    // Swap Proposal PDA
+
+// each proposal unique by team wallet 
+pub struct CreateSwapProposal<'info> {
     #[account(
         init,
         payer = proposer,
-        space = SwapProposal::LEN,
+        space = Proposal::SPACE,
         seeds = [
-            b"swap_proposal",
+            b"swap",
             team_wallet.key().as_ref(),
-            proposal_id.as_ref()
+            proposer.key().as_ref(),
+            &team_wallet.proposal_count.to_le_bytes(),
         ],
         bump
     )]
-    pub swap_proposal: Account<'info, SwapProposal>,
+    pub proposal: Account<'info, Proposal>,
 
-    // Mint we are swapping FROM (input mint)
-    pub input_mint: Account<'info, Mint>,
+    #[account(mut)]
+    pub team_wallet: Account<'info, TeamWallet>,
 
-    // Mint we want to receive (output mint)
-    pub output_mint: Account<'info, Mint>,
-
-    // Team wallet's token account for input token
-    #[account(
-        mut,
-        constraint = team_wallet_input_ata.owner == team_wallet.key(),
-        constraint = team_wallet_input_ata.mint == input_mint.key(),
-    )]
-    pub team_wallet_input_ata: Account<'info, TokenAccount>,
-
-    // Proposer must pay rent + must be a voter
     #[account(mut)]
     pub proposer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
-}
-
-pub fn create_swap_proposal(
-    ctx: Context<CreateSwapProposal>,
-    proposal_id: Pubkey,
-    amount_in: u64,
-    min_amount_out: u64,
-    input_mint: Pubkey,
-    output_mint: Pubkey,
-) -> Result<()> {
-    let team_wallet = &ctx.accounts.team_wallet;
-    let proposer = &ctx.accounts.proposer;
-    let proposal = &mut ctx.accounts.swap_proposal;
-
-    //
-    // --- VALIDATIONS ---
-    //
-
-    // Proposer must be one of the voters
-    require!(
-        team_wallet.voters.contains(&proposer.key()),
-        TeamWalletError::VoterNotFound
-    );
-
-    // Input amount must be > 0
-    require!(amount_in > 0, TeamWalletError::InvalidAmount);
-    require!(min_amount_out > 0, TeamWalletError::InvalidAmount);
-
-    // Ensure the team wallet has enough balance in ATA
-    require!(
-        ctx.accounts.team_wallet_input_ata.amount >= amount_in,
-        TeamWalletError::InsufficientBalance
-    );
-
-    //
-    // --- INITIALIZE PROPOSAL ---
-    //
-
-    proposal.team_wallet = team_wallet.key();
-    proposal.proposal_id = proposal_id;
-    proposal.proposer = proposer.key();
-    proposal.amount_in = amount_in;
-    proposal.min_amount_out = min_amount_out;
-    proposal.input_mint = input_mint;
-    proposal.output_mint = output_mint;
-
-    // Voting
-    proposal.votes_for = 1;       // proposer auto votes
-    proposal.votes_against = 0;
-    proposal.voters = vec![proposer.key()];
-
-    // Metadata
-    proposal.executed = false;
-    proposal.created_at = Clock::get()?.unix_timestamp;
-    proposal.bump = ctx.bumps.swap_proposal;
-
-    msg!(
-        "Swap proposal created: {} {} for minimum {} {}",
-        amount_in,
-        input_mint,
-        min_amount_out,
-        output_mint
-    );
-
-    Ok(())
 }

@@ -6,7 +6,8 @@ pub enum TokenAction {
     Burn,                      // Burn tokens
     FreezAccount,              // Freeze a token account
     ThawAccount,               // Unfreeze a token account
-    SetAuthority,              // Transfer mint/freeze authority
+    SetMintAuthority,
+    SetFreezeAuthority,
     // Token Extensions (Token-2022)
     UpdateMetadata,            // Update token metadata
     SetTransferFee,            // Set transfer fee basis points
@@ -36,6 +37,7 @@ pub struct TokenProposal {
     pub voters_voted: Vec<Pubkey>,
     pub executed: bool,
     pub bump: u8,
+    pub snapshot_voters : Vec<Pubkey> //added
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
