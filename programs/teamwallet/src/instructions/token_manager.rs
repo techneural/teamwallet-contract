@@ -97,7 +97,13 @@ pub fn create_token_proposal(
     proposal.transfer_fee_config = transfer_fee_config;
     proposal.interest_rate = interest_rate;
     proposal.votes_for = 1;
-    proposal.voters_voted = vec![ctx.accounts.proposer.key()];
+    // Store proposer's index (1 byte) instead of full pubkey (32 bytes)
+    let proposer_index = proposal
+        .snapshot_voters
+        .iter()
+        .position(|k| k == &ctx.accounts.proposer.key())
+        .unwrap_or(0) as u8;
+    proposal.voters_voted = vec![proposer_index];
     proposal.votes_against = 0;
     proposal.executed = false;
     proposal.bump = ctx.bumps.token_proposal;
@@ -310,7 +316,7 @@ pub struct CreateTokenProposal<'info> {
     #[account(
         init,
         payer = proposer,
-        space = 8 + 32 + 32 + 32 + 32 + 1 + 8 + 33 + 255 + 11 + 3 + 1 + 1 + 324 + 1 + 1,
+        space = TokenProposal::SPACE,
         seeds = [b"token_proposal", proposal_id.as_ref()],
         bump
     )]

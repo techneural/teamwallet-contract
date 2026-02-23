@@ -44,8 +44,8 @@ pub fn create_swap_proposal(
     // Voting
     proposal.votes_for = 1;
     proposal.votes_against = 0;
-    proposal.voters_voted = vec![proposer];
-    proposal.executed = false;
+proposal.snapshot_voters = wallet.voters.clone(); proposal.snapshot_voters.extend(wallet.contributors.clone()); // Store proposer index (u8) instead of full pubkey let proposer_index = proposal    .snapshot_voters    .iter()     .position(|k| k == &proposer)     .unwrap_or(0) as u8; proposal.voters_voted = vec![proposer_index];
+     proposal.executed = false;
     proposal.ready_to_execute = false;
 
     proposal.bump = ctx.bumps.proposal;

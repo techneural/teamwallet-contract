@@ -23,13 +23,26 @@ pub fn vote_swap_proposal(
     );
 
     // Prevent double vote
-    require!(
-        !proposal.voters_voted.contains(&voter),
-        TeamWalletError::AlreadyVoted
-    );
+   let voter_index = proposal
 
-    // Record vote
-    proposal.voters_voted.push(voter);
+    .snapshot_voters
+
+    .iter()
+
+    .position(|k| k == &voter)
+
+    .ok_or(TeamWalletError::NotAuthorizedToVote)? as u8;
+ 
+require!(
+
+    !proposal.voters_voted.contains(&voter_index),
+
+    TeamWalletError::AlreadyVoted
+
+);
+
+proposal.voters_voted.push(voter_index);
+ 
     if vote_for {
         proposal.votes_for += 1;
     } else {

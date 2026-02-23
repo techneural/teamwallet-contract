@@ -11,7 +11,10 @@ pub struct Proposal {
     pub mint: Option<Pubkey>,
     pub votes_for: u8,
     pub votes_against: u8,
-    pub voters_voted: Vec<Pubkey>,
+    // Stores the INDEX of each voter in snapshot_voters — 1 byte per member
+    // instead of 32 bytes per member (Vec<Pubkey>)
+    pub voters_voted: Vec<u8>,
+    // Full pubkeys stored once at proposal creation
     pub snapshot_voters: Vec<Pubkey>,
     pub executed: bool,
     pub bump: u8,
@@ -25,27 +28,27 @@ pub struct Proposal {
 }
 
 impl Proposal {
-    pub const MAX_VOTERS: usize = 20;
+    pub const MAX_VOTERS: usize = 15;
 
     pub const SPACE: usize =
-        8 +
-        32 +
-        32 +
-        8 +
-        32 +
-        1 +
-        33 +
-        1 +
-        1 +
-        4 + (32 * Self::MAX_VOTERS) +
-        4 + (32 * Self::MAX_VOTERS) +
-        1 +
-        1 +
-        1 +
-        33 +
-        33 +
-        9 +
-        3 +
-        8 +
-        1;
+        8 +                            // discriminator
+        32 +                           // team_wallet
+        32 +                           // proposer
+        8 +                            // amount
+        32 +                           // recipient
+        1 +                            // is_token_transfer
+        33 +                           // mint Option<Pubkey>
+        1 +                            // votes_for
+        1 +                            // votes_against
+        4 + Self::MAX_VOTERS +         // voters_voted Vec<u8>  → 1 byte per member
+        4 + (32 * Self::MAX_VOTERS) +  // snapshot_voters Vec<Pubkey> → 32 bytes per member
+        1 +                            // executed
+        1 +                            // bump
+        1 +                            // is_swap_proposal
+        33 +                           // input_mint Option<Pubkey>
+        33 +                           // output_mint Option<Pubkey>
+        9 +                            // min_output_amount Option<u64>
+        3 +                            // slippage_bps Option<u16>
+        8 +                            // nonce
+        1;                             // ready_to_execute
 }

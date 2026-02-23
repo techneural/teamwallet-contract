@@ -59,7 +59,7 @@ pub mod teamwallet {
 
     pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> Result<()> {
 
-    instructions::vote_token_proposal(ctx, vote_for)  // CORRECT
+    instructions::vote_token_proposal(ctx, vote_for)  
 
 }
  

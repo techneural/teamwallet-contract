@@ -14,7 +14,7 @@ pub fn initialize_team_wallet(
 
     // Validate limits (14 additional voters max, plus owner = 11 total max)
     require!(
-        voters.len() <= 15,
+        voters.len() <= 14,  // max 14 + owner = 15 total, consistent with add_voter limit
         TeamWalletError::MaxVotersReached
         
     );
@@ -59,7 +59,7 @@ pub struct InitializeTeamWallet<'info> {
     #[account(
         init,
         payer = owner,
-        space = 8 + 32 + 36 + 1 + 1 + 484 + 484 + 1,
+        space = TeamWallet::MAX_SIZE,
         seeds = [b"team_wallet", owner.key().as_ref(), name.as_bytes()],
         bump
     )]
