@@ -13,7 +13,6 @@ pub fn create_swap_proposal(
     let proposal = &mut ctx.accounts.proposal;
     let wallet = &ctx.accounts.team_wallet;
 
-    // Access control
     let proposer = ctx.accounts.proposer.key();
     require!(
         wallet.owner == proposer
@@ -22,13 +21,11 @@ pub fn create_swap_proposal(
         TeamWalletError::NotAVoterOrContributor
     );
 
-    // Validate inputs
     require!(amount_in > 0, TeamWalletError::InvalidAmount);
     require!(min_output_amount > 0, TeamWalletError::InvalidMinOutput);
     require!(input_mint != output_mint, TeamWalletError::SameMintSwap);
-    require!(slippage_bps <= 1000, TeamWalletError::SlippageTooHigh); // 10%
+    require!(slippage_bps <= 1000, TeamWalletError::SlippageTooHigh);
 
-    // Save proposal data
     proposal.team_wallet = wallet.key();
     proposal.proposer = proposer;
     proposal.amount = amount_in;
@@ -41,10 +38,9 @@ pub fn create_swap_proposal(
     proposal.mint = None;
     proposal.is_swap_proposal = true;
 
-    // Voting
     proposal.votes_for = 1;
     proposal.votes_against = 0;
-proposal.snapshot_voters = wallet.voters.clone(); proposal.snapshot_voters.extend(wallet.contributors.clone()); // Store proposer index (u8) instead of full pubkey let proposer_index = proposal    .snapshot_voters    .iter()     .position(|k| k == &proposer)     .unwrap_or(0) as u8; proposal.voters_voted = vec![proposer_index];
+proposal.snapshot_voters = wallet.voters.clone(); proposal.snapshot_voters.extend(wallet.contributors.clone()); 
      proposal.executed = false;
     proposal.ready_to_execute = false;
 
@@ -58,7 +54,6 @@ proposal.snapshot_voters = wallet.voters.clone(); proposal.snapshot_voters.exten
 #[instruction(amount_in: u64, input_mint: Pubkey, output_mint: Pubkey)]
 
 
-// each proposal unique by team wallet 
 pub struct CreateSwapProposal<'info> {
     #[account(
         init,

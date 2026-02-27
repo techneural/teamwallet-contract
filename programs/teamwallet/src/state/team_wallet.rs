@@ -1,3 +1,5 @@
+// FILE: teamwallet/src/state/team_wallet.rs
+// CHANGE: Added `lookup_table: Pubkey` field + updated MAX_SIZE (+32 bytes)
 
 use anchor_lang::prelude::*;
 
@@ -11,6 +13,9 @@ pub struct TeamWallet {
     pub vote_threshold: u8,
     pub proposal_count: u64,
     pub bump: u8,
+    /// Address Lookup Table address created at initialization.
+    /// Stored here so the frontend can always find it from chain.
+    pub lookup_table: Pubkey,
 }
 
 impl TeamWallet {
@@ -25,6 +30,7 @@ impl TeamWallet {
         4 + (32 * Self::MAX_VOTERS) +    // contributors Vec<Pubkey>
         1 +                              // voter_count
         1 +                              // vote_threshold
-        8 +                              // proposal_count (was missing!)
-        1;                               // bump
+        8 +                              // proposal_count
+        1 +                              // bump
+        32;                              // lookup_table (NEW)
 }

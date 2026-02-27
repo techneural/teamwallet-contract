@@ -83,11 +83,10 @@ pub fn create_token_proposal(
 
     proposal.proposal_id = proposal_id;
     proposal.team_wallet = team_wallet.key();
-    //add
+
     proposal.snapshot_voters = team_wallet.voters.clone();
     proposal.snapshot_voters.extend(team_wallet.contributors.clone());
-    proposal.snapshot_voters.push(team_wallet.owner);
-    //to
+
     proposal.proposer = ctx.accounts.proposer.key();
     proposal.mint = ctx.accounts.mint.key();
     proposal.action = action;
@@ -97,7 +96,8 @@ pub fn create_token_proposal(
     proposal.transfer_fee_config = transfer_fee_config;
     proposal.interest_rate = interest_rate;
     proposal.votes_for = 1;
-    // Store proposer's index (1 byte) instead of full pubkey (32 bytes)
+
+    
     let proposer_index = proposal
         .snapshot_voters
         .iter()
@@ -316,7 +316,7 @@ pub struct CreateTokenProposal<'info> {
     #[account(
         init,
         payer = proposer,
-        space = TokenProposal::SPACE,
+        space = TokenProposal::SPACE, 
         seeds = [b"token_proposal", proposal_id.as_ref()],
         bump
     )]

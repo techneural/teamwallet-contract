@@ -1,4 +1,3 @@
-
 use anchor_lang::prelude::*;
 
 #[account]
@@ -14,7 +13,8 @@ pub struct Proposal {
     // Stores the INDEX of each voter in snapshot_voters — 1 byte per member
     // instead of 32 bytes per member (Vec<Pubkey>)
     pub voters_voted: Vec<u8>,
-    // Full pubkeys stored once at proposal creation
+    // Full pubkeys stored once at proposal creation.
+    // Includes BOTH voters AND contributors (max 15 + 15 = 30 total).
     pub snapshot_voters: Vec<Pubkey>,
     pub executed: bool,
     pub bump: u8,
@@ -28,27 +28,32 @@ pub struct Proposal {
 }
 
 impl Proposal {
+    // snapshot_voters = voters + contributors
+    // Max voters = 15, max contributors = 15 → max snapshot = 30
     pub const MAX_VOTERS: usize = 15;
+    pub const MAX_CONTRIBUTORS: usize = 15;
+    pub const MAX_SNAPSHOT: usize = Self::MAX_VOTERS + Self::MAX_CONTRIBUTORS; // 30
 
     pub const SPACE: usize =
-        8 +                            // discriminator
-        32 +                           // team_wallet
-        32 +                           // proposer
-        8 +                            // amount
-        32 +                           // recipient
-        1 +                            // is_token_transfer
-        33 +                           // mint Option<Pubkey>
-        1 +                            // votes_for
-        1 +                            // votes_against
-        4 + Self::MAX_VOTERS +         // voters_voted Vec<u8>  → 1 byte per member
-        4 + (32 * Self::MAX_VOTERS) +  // snapshot_voters Vec<Pubkey> → 32 bytes per member
-        1 +                            // executed
-        1 +                            // bump
-        1 +                            // is_swap_proposal
-        33 +                           // input_mint Option<Pubkey>
-        33 +                           // output_mint Option<Pubkey>
-        9 +                            // min_output_amount Option<u64>
-        3 +                            // slippage_bps Option<u16>
-        8 +                            // nonce
-        1;                             // ready_to_execute
+        8 +                                // discriminator
+        32 +                               // team_wallet
+        32 +                               // proposer
+        8 +                                // amount
+        32 +                               // recipient
+        1 +                                // is_token_transfer
+        33 +                               // mint Option<Pubkey>
+        1 +                                // votes_for
+        1 +                                // votes_against
+        4 + Self::MAX_SNAPSHOT +           // voters_voted Vec<u8>  → 1 byte per member (30 max)
+        4 + (32 * Self::MAX_SNAPSHOT) +    // snapshot_voters Vec<Pubkey> → 30 entries max
+        1 +                                // executed
+        1 +                                // bump
+        1 +                                // is_swap_proposal
+        33 +                               // input_mint Option<Pubkey>
+        33 +                               // output_mint Option<Pubkey>
+        9 +                                // min_output_amount Option<u64>
+        3 +                                // slippage_bps Option<u16>
+        8 +                                // nonce
+        1;                                 // ready_to_execute
+        // Total: 1236 bytes (was 741 — only fitted 15 snapshot entries, not 30)
 }

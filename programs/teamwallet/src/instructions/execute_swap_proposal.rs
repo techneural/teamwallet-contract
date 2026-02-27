@@ -24,29 +24,16 @@ pub fn execute_swap_proposal(
     let amount_in = proposal.amount;
     let min_out = proposal.min_output_amount.unwrap();
 
-    // to create pda account [ without private key we will sign]
-    let name_bytes = wallet.name.as_bytes();  // wallet name
+    let name_bytes = wallet.name.as_bytes();  
     let seeds: &[&[u8]] = & [
         b"team_wallet",
         wallet.owner.as_ref(),
         name_bytes,
         &[wallet.bump],
     ];
-    let signer_seeds = &[seeds]; // it wil sign behalf transaction
+    let signer_seeds = &[seeds]; 
 
-    // Execute Jupiter instructions one-by-one
-    // for ix_data in route_instructions {
-    //     let ix: Instruction = bincode::deserialize(&ix_data)
-    //         .map_err(|_| TeamWalletError::InvalidRouteData)?;
 
-    //     invoke_signed(
-    //         &ix,
-    //         ctx.remaining_accounts,
-    //         signer_seeds,
-    //     ).map_err(|_| TeamWalletError::SwapFailed)?;
-    // }
-
-    // Slippage check
     let out_balance = ctx.accounts.output_token_account.amount;
     require!(
         out_balance >= min_out,

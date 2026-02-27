@@ -34,34 +34,38 @@ pub struct TokenProposal {
     pub votes_for: u8,
     pub votes_against: u8,
     // Stores the INDEX of each voter in snapshot_voters — 1 byte per member
-    // instead of 32 bytes per member (Vec<Pubkey>)
     pub voters_voted: Vec<u8>,
     pub executed: bool,
     pub bump: u8,
+    // snapshot_voters = voters(max 15) + contributors(max 15) = 30 max
+    // NOTE: owner is already inside voters[], do NOT push owner separately
     pub snapshot_voters: Vec<Pubkey>,
 }
 
 impl TokenProposal {
     pub const MAX_VOTERS: usize = 15;
+    pub const MAX_CONTRIBUTORS: usize = 15;
+    pub const MAX_SNAPSHOT: usize = Self::MAX_VOTERS + Self::MAX_CONTRIBUTORS; // 30
 
     pub const SPACE: usize =
-        8 +                            // discriminator
-        32 +                           // proposal_id
-        32 +                           // team_wallet
-        32 +                           // proposer
-        32 +                           // mint
-        1 +                            // action enum
-        8 +                            // amount
-        33 +                           // recipient Option<Pubkey>
-        255 +                          // metadata Option<TokenMetadataParams>
-        11 +                           // transfer_fee_config Option<TransferFeeParams>
-        3 +                            // interest_rate Option<i16>
-        1 +                            // votes_for
-        1 +                            // votes_against
-        4 + Self::MAX_VOTERS +         // voters_voted Vec<u8> → 1 byte per member
-        1 +                            // executed
-        1 +                            // bump
-        4 + (32 * Self::MAX_VOTERS);   // snapshot_voters Vec<Pubkey> → 32 bytes per member
+        8 +                                // discriminator
+        32 +                               // proposal_id
+        32 +                               // team_wallet
+        32 +                               // proposer
+        32 +                               // mint
+        1 +                                // action enum
+        8 +                                // amount
+        33 +                               // recipient Option<Pubkey>
+        255 +                              // metadata Option<TokenMetadataParams>
+        11 +                               // transfer_fee_config Option<TransferFeeParams>
+        3 +                                // interest_rate Option<i16>
+        1 +                                // votes_for
+        1 +                                // votes_against
+        4 + Self::MAX_SNAPSHOT +           // voters_voted Vec<u8> → 1 byte per member (30 max)
+        1 +                                // executed
+        1 +                                // bump
+        4 + (32 * Self::MAX_SNAPSHOT);     // snapshot_voters Vec<Pubkey> → 30 entries
+        // Total: 1449 bytes (was 954 — caused overflow with >15 total members)
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

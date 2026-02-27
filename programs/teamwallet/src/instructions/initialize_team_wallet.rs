@@ -1,3 +1,4 @@
+
 use anchor_lang::prelude::*;
 use crate::{errors::TeamWalletError, state::TeamWallet};
 
@@ -5,21 +6,18 @@ pub fn initialize_team_wallet(
     ctx: Context<InitializeTeamWallet>,
     name: String,
     vote_threshold: u8,
-    voters: Vec<Pubkey>, 
+    voters: Vec<Pubkey>,
+    lookup_table: Pubkey,     
 ) -> Result<()> {
     let team_wallet = &mut ctx.accounts.team_wallet;
 
-        msg!("--- Initializing team wallet ---");
+    msg!("--- Initializing team wallet ---");
 
-
-    // Validate limits (14 additional voters max, plus owner = 11 total max)
     require!(
-        voters.len() <= 14,  // max 14 + owner = 15 total, consistent with add_voter limit
+        voters.len() <= 14,
         TeamWalletError::MaxVotersReached
-        
     );
 
-    // Check for duplicates in voters list
     let mut unique_voters = voters.clone();
     unique_voters.sort();
     unique_voters.dedup();
@@ -27,8 +25,7 @@ pub fn initialize_team_wallet(
         unique_voters.len() == voters.len(),
         TeamWalletError::DuplicateVoter
     );
-    
-    // Check if owner is in voters list (owner is automatically added)
+
     let owner_key = ctx.accounts.owner.key();
     require!(
         !voters.contains(&owner_key),
@@ -38,9 +35,8 @@ pub fn initialize_team_wallet(
     team_wallet.owner = owner_key;
     team_wallet.name = name;
     team_wallet.vote_threshold = vote_threshold;
+    team_wallet.lookup_table = lookup_table; 
 
-
-   // Owner is always the first voter
     let mut all_voters = vec![owner_key];
     all_voters.extend(voters);
     team_wallet.voters = all_voters;
@@ -48,8 +44,9 @@ pub fn initialize_team_wallet(
 
     team_wallet.contributors = vec![];
     team_wallet.bump = ctx.bumps.team_wallet;
-    
+
     msg!("Team wallet initialized by owner: {}", ctx.accounts.owner.key());
+    msg!("Lookup table: {}", lookup_table);
     Ok(())
 }
 
@@ -64,11 +61,9 @@ pub struct InitializeTeamWallet<'info> {
         bump
     )]
     pub team_wallet: Account<'info, TeamWallet>,
-    
+
     #[account(mut)]
     pub owner: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
 }
-
-

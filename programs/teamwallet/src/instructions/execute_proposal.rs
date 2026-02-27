@@ -41,7 +41,6 @@ pub fn execute_proposal_token(ctx: Context<ExecuteProposalToken>) -> Result<()> 
         TeamWalletError::InsufficientVotes
     );
    
-    // Verify the mint matches
     require!(
         ctx.accounts.team_token_account.mint == proposal.mint.unwrap(),
         TeamWalletError::InvalidMint

@@ -5,7 +5,6 @@ use crate::errors::TeamWalletError;
 pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
 
-    // Find voter's index in snapshot_voters
     let voter_index = proposal
         .snapshot_voters
         .iter()
@@ -29,7 +28,6 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
         proposal.votes_against += 1;
     }
 
-    // Store index (1 byte) instead of full pubkey (32 bytes)
     proposal.voters_voted.push(voter_index);
 
     msg!("Vote recorded from: {} (index: {})", ctx.accounts.voter.key(), voter_index);
@@ -40,7 +38,7 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
 pub struct VoteProposal<'info> {
     #[account(
         mut,
-        realloc = Proposal::SPACE,
+        realloc = Proposal::SPACE,  
         realloc::payer = voter,
         realloc::zero = false,
     )]
