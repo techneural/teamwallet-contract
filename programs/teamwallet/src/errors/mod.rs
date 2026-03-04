@@ -142,4 +142,7 @@ pub enum TeamWalletError {
 
     InvalidAmount,
 
+    #[msg("Invalid threshold value")]
+    InvalidThreshold
+
 }
