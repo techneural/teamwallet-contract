@@ -72,7 +72,7 @@ pub struct CreateProposalSol<'info> {
 }
 
 use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 pub fn create_proposal_token(
     ctx: Context<CreateProposalToken>,
@@ -127,7 +127,7 @@ pub struct CreateProposalToken<'info> {
     #[account(
         init_if_needed,
         payer = proposer,
-        space = Proposal::SPACE, 
+        space = Proposal::SPACE,
         seeds = [
             b"proposal",
             team_wallet.key().as_ref(),
@@ -147,12 +147,13 @@ pub struct CreateProposalToken<'info> {
         payer = proposer,
         associated_token::mint = token_mint,
         associated_token::authority = team_wallet,
+        associated_token::token_program = token_program,  
     )]
-    pub team_token_account: Box<Account<'info, TokenAccount>>,
+    pub team_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    pub token_mint: Account<'info, Mint>,
+    pub token_mint: InterfaceAccount<'info, Mint>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,  
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }

@@ -14,7 +14,6 @@ pub fn vote_swap_proposal(
     require!(proposal.is_swap_proposal, TeamWalletError::InvalidProposalType);
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
 
-    // Auth check
     require!(
         wallet.owner == voter
             || wallet.voters.contains(&voter)
@@ -22,7 +21,6 @@ pub fn vote_swap_proposal(
         TeamWalletError::NotAuthorizedToVote
     );
 
-    // Prevent double vote
    let voter_index = proposal
 
     .snapshot_voters
@@ -49,7 +47,6 @@ proposal.voters_voted.push(voter_index);
         proposal.votes_against += 1;
     }
 
-    // Check threshold
     let required_votes = ((wallet.voter_count as f64)
         * (wallet.vote_threshold as f64 / 100.0))
         .ceil() as u8;

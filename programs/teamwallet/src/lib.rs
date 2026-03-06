@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-declare_id!("FQigf8ntbnvdzwbJzb9qKH2hmQZhKQwNMKo8iSZ2SwCe");
+declare_id!("3xjECcMhLJEWohyVCvBM69NQayjjaPuxCxQkVBu8fevW");
 
 pub mod instructions;
 pub mod state;
@@ -145,8 +145,7 @@ pub mod teamwallet {
         instructions::set_threshold(ctx, new_threshold)
     }
 
-    /// Creates an on-chain ThresholdProposal PDA.
-    /// Owner calls this first; then votes are collected off-chain via DB.
+    
     pub fn create_threshold_proposal(
         ctx: Context<CreateThresholdProposal>,
         new_threshold: u8,
@@ -155,8 +154,7 @@ pub mod teamwallet {
         instructions::create_threshold_proposal(ctx, new_threshold, nonce)
     }
 
-    /// Executes the threshold change on-chain after off-chain votes confirm approval.
-    /// Closes the proposal account and refunds rent to the owner.
+   
     pub fn execute_threshold_proposal(
         ctx: Context<ExecuteThresholdProposal>,
         nonce: Pubkey,

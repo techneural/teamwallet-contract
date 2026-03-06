@@ -48,13 +48,11 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
         TeamWalletError::InsufficientVotes
     );
 
-      //  Verify buffer matches proposal
     require!(
         proposal.new_buffer == ctx.accounts.buffer.key(),
         TeamWalletError::InvalidUpgradeBuffer
     );
 
-    //  Verify ProgramData PDA
     let (expected_program_data, _) = Pubkey::find_program_address(
         &[ctx.accounts.program_id.key().as_ref()],
         &bpf_loader_upgradeable::id(),
@@ -65,7 +63,6 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
         TeamWalletError::InvalidProgramData
     );
     
-    // Prepare PDA seeds for signing
     let name_bytes = team_wallet.name.as_bytes();
     let seeds = &[
         b"team_wallet",
@@ -75,7 +72,6 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
     ];
     let signer_seeds = &[&seeds[..]];
     
-    // Create the upgrade instruction
     let upgrade_ix = bpf_loader_upgradeable::upgrade(
         &ctx.accounts.program_id.key(),
         &ctx.accounts.buffer.key(),
@@ -83,7 +79,6 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
         &ctx.accounts.team_wallet.key(),
     );
     
-    // Execute the upgrade with PDA signing
     invoke_signed(
         &upgrade_ix,
         &[
@@ -108,7 +103,6 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
 pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
     let team_wallet = &ctx.accounts.team_wallet;
     
-    // Prepare PDA seeds for signing
     let name_bytes = team_wallet.name.as_bytes();
     let seeds = &[
         b"team_wallet",
@@ -118,14 +112,12 @@ pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Res
     ];
     let signer_seeds = &[&seeds[..]];
     
-    // Create the set authority instruction
     let set_authority_ix = bpf_loader_upgradeable::set_upgrade_authority(
         &ctx.accounts.program_id.key(),
         &ctx.accounts.current_authority.key(),
         Some(&team_wallet.key()),
     );
     
-    // Execute the authority transfer
     invoke_signed(
         &set_authority_ix,
         &[
@@ -187,18 +179,14 @@ pub struct ExecuteUpgradeProposal<'info> {
     )]
     pub team_wallet: Account<'info, TeamWallet>,
     
-    /// CHECK: The program to be upgraded
     pub program_id: AccountInfo<'info>,
     
-    /// CHECK: Program data account
     #[account(mut)]
     pub program_data: AccountInfo<'info>,
     
-    /// CHECK: Buffer account with new program data
     #[account(mut)]
     pub buffer: AccountInfo<'info>,
     
-    /// CHECK: Spill account to receive refunded rent
     #[account(mut)]
     pub spill_account: AccountInfo<'info>,
 
@@ -206,10 +194,8 @@ pub struct ExecuteUpgradeProposal<'info> {
     pub clock: Sysvar<'info, Clock>,
 
     
-    /// CHECK: BPF Loader Upgradeable program
     pub bpf_loader_upgradeable_program: AccountInfo<'info>,
     
-    // pub executor: Signer<'info>,
 }
 
 
@@ -217,17 +203,14 @@ pub struct ExecuteUpgradeProposal<'info> {
 pub struct TransferProgramAuthority<'info> {
     pub team_wallet: Account<'info, TeamWallet>,
     
-    /// CHECK: The program whose authority is being transferred
     #[account(mut)]
     pub program_id: AccountInfo<'info>,
     
-    /// CHECK: Program data account
     #[account(mut)]
     pub program_data: AccountInfo<'info>,
     
     #[account(mut)]
     pub current_authority: Signer<'info>,
     
-    /// CHECK: BPF Loader Upgradeable program
     pub bpf_loader_upgradeable_program: AccountInfo<'info>,
 }

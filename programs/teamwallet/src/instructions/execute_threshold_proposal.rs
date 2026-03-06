@@ -2,17 +2,10 @@ use anchor_lang::prelude::*;
 use crate::state::{TeamWallet, ThresholdProposal};
 use crate::errors::TeamWalletError;
 
-/// Executes a ThresholdProposal on-chain:
-/// - Validates it hasn't been executed yet
-/// - Updates team_wallet.vote_threshold to the proposed value
-/// - Marks the proposal as executed
-/// - Closes the proposal account and returns rent to owner
-///
-/// The off-chain vote collection is done via DB APIs.
-/// The owner calls this once votesFor >= currentThreshold in the DB.
+
 pub fn execute_threshold_proposal(
     ctx: Context<ExecuteThresholdProposal>,
-    _nonce: Pubkey, // used in seeds derivation via #[instruction]
+    _nonce: Pubkey,
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.threshold_proposal;
     let team_wallet = &mut ctx.accounts.team_wallet;
@@ -29,7 +22,6 @@ pub fn execute_threshold_proposal(
         TeamWalletError::InvalidThreshold
     );
 
-    // Apply the threshold change
     team_wallet.vote_threshold = proposal.new_threshold;
     proposal.executed = true;
 
@@ -54,7 +46,7 @@ pub struct ExecuteThresholdProposal<'info> {
         ],
         bump = threshold_proposal.bump,
         has_one = team_wallet,
-        close = owner, // return rent lamports to owner on close
+        close = owner, 
     )]
     pub threshold_proposal: Account<'info, ThresholdProposal>,
 

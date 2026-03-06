@@ -78,6 +78,10 @@ pub fn create_token_proposal(
         TokenAction::SetPermanentDelegate => {
             require!(recipient.is_some(), TeamWalletError::RecipientRequired);
         }
+        TokenAction::Transfer => {
+            require!(recipient.is_some(), TeamWalletError::RecipientRequired);
+            require!(amount > 0, TeamWalletError::InvalidAmount);
+        }
         _ => {}
     }
 
@@ -97,7 +101,6 @@ pub fn create_token_proposal(
     proposal.interest_rate = interest_rate;
     proposal.votes_for = 1;
 
-    
     let proposer_index = proposal
         .snapshot_voters
         .iter()
@@ -147,21 +150,14 @@ pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> 
         TokenAction::Mint => {
             let cpi_accounts = token_interface::MintTo {
                 mint: ctx.accounts.mint.to_account_info(),
-                to: ctx
-                    .accounts
-                    .token_account
-                    .as_ref()
-                    .unwrap()
-                    .to_account_info(),
+                to: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
                 authority: ctx.accounts.team_wallet.to_account_info(),
             };
-
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 cpi_accounts,
                 signer_seeds,
             );
-
             token_interface::mint_to(cpi_ctx, proposal.amount)?;
             msg!("Minted {} tokens", proposal.amount);
         }
@@ -169,89 +165,60 @@ pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> 
         TokenAction::Burn => {
             let cpi_accounts = token_interface::Burn {
                 mint: ctx.accounts.mint.to_account_info(),
-                from: ctx
-                    .accounts
-                    .token_account
-                    .as_ref()
-                    .unwrap()
-                    .to_account_info(),
+                from: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
                 authority: ctx.accounts.team_wallet.to_account_info(),
             };
-
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 cpi_accounts,
                 signer_seeds,
             );
-
             token_interface::burn(cpi_ctx, proposal.amount)?;
             msg!("Burned {} tokens", proposal.amount);
         }
 
         TokenAction::FreezAccount => {
             let cpi_accounts = token_interface::FreezeAccount {
-                account: ctx
-                    .accounts
-                    .token_account
-                    .as_ref()
-                    .unwrap()
-                    .to_account_info(),
+                account: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
                 mint: ctx.accounts.mint.to_account_info(),
                 authority: ctx.accounts.team_wallet.to_account_info(),
             };
-
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 cpi_accounts,
                 signer_seeds,
             );
-
             token_interface::freeze_account(cpi_ctx)?;
             msg!("Froze token account");
         }
 
         TokenAction::ThawAccount => {
             let cpi_accounts = token_interface::ThawAccount {
-                account: ctx
-                    .accounts
-                    .token_account
-                    .as_ref()
-                    .unwrap()
-                    .to_account_info(),
+                account: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
                 mint: ctx.accounts.mint.to_account_info(),
                 authority: ctx.accounts.team_wallet.to_account_info(),
             };
-
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 cpi_accounts,
                 signer_seeds,
             );
-
             token_interface::thaw_account(cpi_ctx)?;
             msg!("Thawed token account");
         }
 
         TokenAction::SetMintAuthority => {
             let new_authority = proposal.recipient.unwrap();
-
             let cpi_accounts = token_interface::SetAuthority {
                 current_authority: ctx.accounts.team_wallet.to_account_info(),
                 account_or_mint: ctx.accounts.mint.to_account_info(),
             };
-
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 cpi_accounts,
                 signer_seeds,
             );
-
-            token_interface::set_authority(
-                cpi_ctx,
-                AuthorityType::MintTokens,
-                Some(new_authority),
-            )?;
-
+            token_interface::set_authority(cpi_ctx, AuthorityType::MintTokens, Some(new_authority))?;
             msg!("Mint authority transferred");
         }
 
@@ -260,24 +227,51 @@ pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> 
                 current_authority: ctx.accounts.team_wallet.to_account_info(),
                 account_or_mint: ctx.accounts.mint.to_account_info(),
             };
-
             let cpi_ctx = CpiContext::new_with_signer(
                 ctx.accounts.token_program.to_account_info(),
                 cpi_accounts,
                 signer_seeds,
             );
-
-            token_interface::set_authority(
-                cpi_ctx,
-                AuthorityType::FreezeAccount,
-                proposal.recipient,
-            )?;
-
+            token_interface::set_authority(cpi_ctx, AuthorityType::FreezeAccount, proposal.recipient)?;
             if proposal.recipient.is_some() {
                 msg!("Freeze authority transferred");
             } else {
                 msg!("Freeze authority burned (token is now immutable)");
             }
+        }
+
+      
+        TokenAction::Transfer => {
+           
+            let source = ctx
+                .accounts
+                .token_account
+                .as_ref()
+                .ok_or(TeamWalletError::RecipientRequired)?;
+
+            let destination = ctx
+                .accounts
+                .destination_token_account
+                .as_ref()
+                .ok_or(TeamWalletError::RecipientRequired)?;
+
+            let cpi_accounts = token_interface::TransferChecked {
+                mint: ctx.accounts.mint.to_account_info(),
+                from: source.to_account_info(),
+                to: destination.to_account_info(),
+                authority: ctx.accounts.team_wallet.to_account_info(),
+            };
+            let cpi_ctx = CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                cpi_accounts,
+                signer_seeds,
+            );
+            token_interface::transfer_checked(
+                cpi_ctx,
+                proposal.amount,
+                ctx.accounts.mint.decimals,
+            )?;
+            msg!("Transferred {} tokens to recipient", proposal.amount);
         }
 
         _ => {}
@@ -294,18 +288,11 @@ pub fn transfer_mint_authority(ctx: Context<TransferMintAuthority>) -> Result<()
         current_authority: ctx.accounts.current_authority.to_account_info(),
         account_or_mint: ctx.accounts.mint.to_account_info(),
     };
-
     let cpi_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         cpi_accounts,
     );
-
-    token_interface::set_authority(
-        cpi_ctx,
-        AuthorityType::MintTokens,
-        Some(team_wallet.key()),
-    )?;
-
+    token_interface::set_authority(cpi_ctx, AuthorityType::MintTokens, Some(team_wallet.key()))?;
     msg!("Mint authority transferred to team wallet");
     Ok(())
 }
@@ -316,7 +303,7 @@ pub struct CreateTokenProposal<'info> {
     #[account(
         init,
         payer = proposer,
-        space = TokenProposal::SPACE, 
+        space = TokenProposal::SPACE,
         seeds = [b"token_proposal", proposal_id.as_ref()],
         bump
     )]
@@ -345,8 +332,13 @@ pub struct ExecuteTokenProposal<'info> {
     #[account(mut)]
     pub mint: InterfaceAccount<'info, Mint>,
 
+   
     #[account(mut)]
     pub token_account: Option<InterfaceAccount<'info, TokenAccount>>,
+
+   
+    #[account(mut)]
+    pub destination_token_account: Option<InterfaceAccount<'info, TokenAccount>>,
 
     pub token_program: Interface<'info, TokenInterface>,
     pub executor: Signer<'info>,

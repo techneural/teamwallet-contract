@@ -17,6 +17,7 @@ pub enum TokenAction {
     SetPermanentDelegate,
     UpdateGroupPointer,
     UpdateMemberPointer,
+    Transfer, // ← NEW: send tokens to a friend wallet
 }
 
 #[account]
@@ -65,7 +66,6 @@ impl TokenProposal {
         1 +                                // executed
         1 +                                // bump
         4 + (32 * Self::MAX_SNAPSHOT);     // snapshot_voters Vec<Pubkey> → 30 entries
-        // Total: 1449 bytes (was 954 — caused overflow with >15 total members)
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

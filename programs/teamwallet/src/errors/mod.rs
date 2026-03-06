@@ -1,4 +1,3 @@
-// errors.rs
 
 use anchor_lang::prelude::*;
 

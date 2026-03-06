@@ -2,14 +2,11 @@ use anchor_lang::prelude::*;
 use crate::state::{TeamWallet, ThresholdProposal};
 use crate::errors::TeamWalletError;
 
-/// Creates an on-chain ThresholdProposal account.
-/// Only the team wallet owner can call this.
-/// Voting is collected off-chain (DB); once enough votes are gathered
-/// the owner calls execute_threshold_proposal to apply the change on-chain.
+
 pub fn create_threshold_proposal(
     ctx: Context<CreateThresholdProposal>,
     new_threshold: u8,
-    _nonce: Pubkey, // used only in seeds via #[instruction] — stored on proposal
+    _nonce: Pubkey, 
 ) -> Result<()> {
     let team_wallet = &ctx.accounts.team_wallet;
     let proposal = &mut ctx.accounts.threshold_proposal;

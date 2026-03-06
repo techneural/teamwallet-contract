@@ -1,8 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Transfer};
+use anchor_spl::token_interface::{self, Mint, TokenAccount, TokenInterface, TransferChecked};
 use crate::state::{TeamWallet, Proposal};
 use crate::errors::TeamWalletError;
- 
+
 pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
@@ -11,7 +11,6 @@ pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
     require!(!proposal.is_token_transfer, TeamWalletError::InvalidProposalType);
    
     let votes_needed = ((team_wallet.voter_count as f64) * (team_wallet.vote_threshold as f64 / 100.0)).ceil() as u8;
-   
    
     require!(
         proposal.votes_for >= votes_needed,
@@ -26,7 +25,7 @@ pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
     msg!("SOL transfer executed: {} lamports to {}", proposal.amount, proposal.recipient);
     Ok(())
 }
- 
+
 pub fn execute_proposal_token(ctx: Context<ExecuteProposalToken>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
@@ -54,24 +53,32 @@ pub fn execute_proposal_token(ctx: Context<ExecuteProposalToken>) -> Result<()> 
         &[team_wallet.bump],
     ];
     let signer_seeds = &[&seeds[..]];
-   
-    let cpi_accounts = Transfer {
+
+    let cpi_accounts = TransferChecked {
         from: ctx.accounts.team_token_account.to_account_info(),
+        mint: ctx.accounts.token_mint.to_account_info(),       
         to: ctx.accounts.recipient_token_account.to_account_info(),
         authority: ctx.accounts.team_wallet.to_account_info(),
     };
-   
-    let cpi_program = ctx.accounts.token_program.to_account_info();
-    let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-   
-    token::transfer(cpi_ctx, proposal.amount)?;
+
+    let cpi_ctx = CpiContext::new_with_signer(
+        ctx.accounts.token_program.to_account_info(),
+        cpi_accounts,
+        signer_seeds,
+    );
+
+    token_interface::transfer_checked(
+        cpi_ctx,
+        proposal.amount,
+        ctx.accounts.token_mint.decimals,  
+    )?;
    
     proposal.executed = true;
    
     msg!("Token transfer executed: {} tokens to {}", proposal.amount, proposal.recipient);
     Ok(())
 }
- 
+
 #[derive(Accounts)]
 pub struct ExecuteProposalSol<'info> {
     #[account(mut)]
@@ -83,13 +90,12 @@ pub struct ExecuteProposalSol<'info> {
     )]
     pub team_wallet: Account<'info, TeamWallet>,
    
-    /// CHECK: This is the recipient of the transfer
     #[account(mut)]
     pub recipient: AccountInfo<'info>,
    
     pub executor: Signer<'info>,
 }
- 
+
 #[derive(Accounts)]
 pub struct ExecuteProposalToken<'info> {
     #[account(mut)]
@@ -102,14 +108,14 @@ pub struct ExecuteProposalToken<'info> {
     pub team_wallet: Account<'info, TeamWallet>,
    
     #[account(mut)]
-    pub team_token_account: Account<'info, TokenAccount>,
-   
+    pub team_token_account: InterfaceAccount<'info, TokenAccount>,
+
+    pub token_mint: InterfaceAccount<'info, Mint>,                
+
     #[account(mut)]
-    pub recipient_token_account: Account<'info, TokenAccount>,
+    pub recipient_token_account: InterfaceAccount<'info, TokenAccount>,
    
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,  
    
     pub executor: Signer<'info>,
 }
- 
- 

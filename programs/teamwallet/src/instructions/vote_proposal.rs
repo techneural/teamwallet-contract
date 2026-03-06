@@ -11,7 +11,6 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
         .position(|k| k == &ctx.accounts.voter.key())
         .ok_or(TeamWalletError::NotAuthorizedToVote)? as u8;
 
-    // Check not already voted using index
     require!(
         !proposal.voters_voted.contains(&voter_index),
         TeamWalletError::AlreadyVoted
