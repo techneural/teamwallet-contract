@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-declare_id!("3xjECcMhLJEWohyVCvBM69NQayjjaPuxCxQkVBu8fevW");
+declare_id!("B94WzqVuEVxRJ3R4Wh5AsaaxnjrcAL3v9zEVQ5uD4M8J");
 
 pub mod instructions;
 pub mod state;
@@ -78,8 +78,16 @@ pub mod teamwallet {
     pub fn create_upgrade_proposal(
         ctx: Context<CreateUpgradeProposal>,
         new_buffer: Pubkey,
+        spill_account: Pubkey,
     ) -> Result<()> {
-        instructions::create_upgrade_proposal(ctx, new_buffer)
+        instructions::create_upgrade_proposal(ctx, new_buffer, spill_account)
+    }
+
+    pub fn vote_upgrade_proposal(
+        ctx: Context<VoteUpgradeProposal>,
+        vote_for: bool,
+    ) -> Result<()> {
+        instructions::vote_upgrade_proposal(ctx, vote_for)
     }
 
     pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<()> {
@@ -88,6 +96,33 @@ pub mod teamwallet {
 
     pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
         instructions::transfer_program_authority(ctx)
+    }
+
+    pub fn close_upgrade_proposal(ctx: Context<CloseUpgradeProposal>) -> Result<()> {
+        instructions::close_upgrade_proposal(ctx)
+    }
+
+    pub fn create_delete_proposal(
+        ctx: Context<CreateDeleteProposal>,
+        program_id: Pubkey,
+        spill_account: Pubkey,
+    ) -> Result<()> {
+        instructions::create_delete_proposal(ctx, program_id, spill_account)
+    }
+
+    pub fn vote_delete_proposal(
+        ctx: Context<VoteDeleteProposal>,
+        vote_for: bool,
+    ) -> Result<()> {
+        instructions::vote_delete_proposal(ctx, vote_for)
+    }
+
+    pub fn execute_delete_proposal(ctx: Context<ExecuteDeleteProposal>) -> Result<()> {
+        instructions::execute_delete_proposal(ctx)
+    }
+
+    pub fn close_delete_proposal(ctx: Context<CloseDeleteProposal>) -> Result<()> {
+        instructions::close_delete_proposal(ctx)
     }
 
     pub fn create_token_proposal(
@@ -145,7 +180,6 @@ pub mod teamwallet {
         instructions::set_threshold(ctx, new_threshold)
     }
 
-    
     pub fn create_threshold_proposal(
         ctx: Context<CreateThresholdProposal>,
         new_threshold: u8,
@@ -154,7 +188,13 @@ pub mod teamwallet {
         instructions::create_threshold_proposal(ctx, new_threshold, nonce)
     }
 
-   
+    pub fn vote_threshold_proposal(
+        ctx: Context<VoteThresholdProposal>,
+        vote_for: bool,
+    ) -> Result<()> {
+        instructions::vote_threshold_proposal(ctx, vote_for)
+    }
+
     pub fn execute_threshold_proposal(
         ctx: Context<ExecuteThresholdProposal>,
         nonce: Pubkey,

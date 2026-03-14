@@ -16,16 +16,33 @@ pub struct ThresholdProposal {
     pub bump: u8,
     /// Random nonce pubkey used as PDA seed (stored so client can verify)
     pub nonce: Pubkey,
+    /// Snapshot of eligible voters at proposal creation time
+    pub snapshot_voters: Vec<Pubkey>,
+    /// Pubkeys of members who have already voted (prevents double-voting)
+    pub voters_voted: Vec<Pubkey>,
+    /// Number of approve votes cast
+    pub votes_for: u8,
+    /// Number of reject votes cast
+    pub votes_against: u8,
+    /// Whether the proposal was auto-cancelled due to irrecoverable rejection
+    pub cancelled: bool,
 }
 
 impl ThresholdProposal {
+    pub const MAX_VOTERS: usize = 15;
+
     pub const SPACE: usize =
-        8 +   // discriminator
-        32 +  // team_wallet
-        32 +  // proposer
-        1 +   // new_threshold
-        1 +   // old_threshold
-        1 +   // executed
-        1 +   // bump
-        32;   // nonce
+        8 +                              // discriminator
+        32 +                             // team_wallet
+        32 +                             // proposer
+        1 +                              // new_threshold
+        1 +                              // old_threshold
+        1 +                              // executed
+        1 +                              // bump
+        32 +                             // nonce
+        4 + (32 * Self::MAX_VOTERS) +    // snapshot_voters Vec<Pubkey>
+        4 + (32 * Self::MAX_VOTERS) +    // voters_voted Vec<Pubkey>
+        1 +                              // votes_for
+        1 +                              // votes_against
+        1;                               // cancelled
 }

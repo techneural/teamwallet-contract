@@ -10,6 +10,7 @@ pub fn create_threshold_proposal(
 ) -> Result<()> {
     let team_wallet = &ctx.accounts.team_wallet;
     let proposal = &mut ctx.accounts.threshold_proposal;
+    let owner_key = ctx.accounts.owner.key();
 
     require!(
         new_threshold >= 1,
@@ -21,13 +22,27 @@ pub fn create_threshold_proposal(
         TeamWalletError::InvalidThreshold
     );
 
+    // Snapshot all eligible voters (owner + voters list)
+    let mut snapshot: Vec<Pubkey> = vec![owner_key];
+    for v in &team_wallet.voters {
+        if *v != owner_key {
+            snapshot.push(*v);
+        }
+    }
+
     proposal.team_wallet = team_wallet.key();
-    proposal.proposer = ctx.accounts.owner.key();
+    proposal.proposer = owner_key;
     proposal.new_threshold = new_threshold;
     proposal.old_threshold = team_wallet.vote_threshold;
     proposal.executed = false;
+    proposal.cancelled = false;
     proposal.bump = ctx.bumps.threshold_proposal;
     proposal.nonce = _nonce;
+    proposal.snapshot_voters = snapshot;
+    // Owner auto-approves on creation
+    proposal.voters_voted = vec![owner_key];
+    proposal.votes_for = 1;
+    proposal.votes_against = 0;
 
     msg!(
         "ThresholdProposal created: {} -> {} / {}",
@@ -45,7 +60,7 @@ pub struct CreateThresholdProposal<'info> {
     #[account(
         init,
         payer = owner,
-        space = ThresholdProposal::SPACE,
+        space = ThresholdProposal::SPACE, // updated SPACE includes voters vecs
         seeds = [
             b"threshold_proposal",
             team_wallet.key().as_ref(),

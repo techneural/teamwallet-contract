@@ -6,7 +6,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-teamwallet = "3xjECcMhLJEWohyVCvBM69NQayjjaPuxCxQkVBu8fevW"
+teamwallet = "B94WzqVuEVxRJ3R4Wh5AsaaxnjrcAL3v9zEVQ5uD4M8J"
 
 [registry]
 url = "https://api.apr.dev"
