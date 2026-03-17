@@ -9,6 +9,9 @@ use anchor_spl::token_interface::{
     TokenInterface,
 };
 
+use spl_token_metadata_interface::instruction::{update_field, remove_key};
+use spl_token_metadata_interface::state::Field;
+
 use crate::errors::TeamWalletError;
 use crate::state::{
     TeamWallet,
@@ -240,9 +243,87 @@ pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> 
             }
         }
 
-      
+        TokenAction::UpdateMetadata => {
+            let meta = proposal
+                .metadata
+                .as_ref()
+                .ok_or(TeamWalletError::MetadataRequired)?;
+
+            let token_program = ctx.accounts.token_program.to_account_info();
+            let mint_info = ctx.accounts.mint.to_account_info();
+            let team_wallet_info = ctx.accounts.team_wallet.to_account_info();
+            let executor_info = ctx.accounts.executor.to_account_info();
+            let system_program_info = ctx.accounts.system_program.to_account_info();
+
+            // Update Name
+            let update_name_ix = update_field(
+                token_program.key,
+                mint_info.key,
+                team_wallet_info.key,
+                Field::Name,
+                meta.name.clone(),
+            );
+            invoke_signed(
+                &update_name_ix,
+                &[
+                    mint_info.clone(),
+                    team_wallet_info.clone(),
+                    executor_info.clone(),
+                    system_program_info.clone(),
+                    token_program.clone(),
+                ],
+                signer_seeds,
+            )?;
+
+            // Update Symbol
+            let update_symbol_ix = update_field(
+                token_program.key,
+                mint_info.key,
+                team_wallet_info.key,
+                Field::Symbol,
+                meta.symbol.clone(),
+            );
+            invoke_signed(
+                &update_symbol_ix,
+                &[
+                    mint_info.clone(),
+                    team_wallet_info.clone(),
+                    executor_info.clone(),
+                    system_program_info.clone(),
+                    token_program.clone(),
+                ],
+                signer_seeds,
+            )?;
+
+            // Update URI
+            let update_uri_ix = update_field(
+                token_program.key,
+                mint_info.key,
+                team_wallet_info.key,
+                Field::Uri,
+                meta.uri.clone(),
+            );
+            invoke_signed(
+                &update_uri_ix,
+                &[
+                    mint_info.clone(),
+                    team_wallet_info.clone(),
+                    executor_info.clone(),
+                    system_program_info.clone(),
+                    token_program.clone(),
+                ],
+                signer_seeds,
+            )?;
+
+            msg!(
+                "On-chain metadata updated: name={}, symbol={}, uri={}",
+                meta.name,
+                meta.symbol,
+                meta.uri
+            );
+        }
+
         TokenAction::Transfer => {
-           
             let source = ctx
                 .accounts
                 .token_account
@@ -342,6 +423,7 @@ pub struct ExecuteTokenProposal<'info> {
 
     pub token_program: Interface<'info, TokenInterface>,
     pub executor: Signer<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]

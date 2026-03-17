@@ -130,6 +130,7 @@ pub fn close_upgrade_proposal(ctx: Context<CloseUpgradeProposal>) -> Result<()> 
     Ok(())
 }
 
+
 pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
     let team_wallet = &ctx.accounts.team_wallet;
     let name_bytes = team_wallet.name.as_bytes();
