@@ -99,18 +99,20 @@ fn exec_transfer_sol<'a>(
     remaining_accounts: &[AccountInfo<'a>],
     amount: u64,
     recipient: Pubkey,
-    owner: &Pubkey,
-    name_bytes: &[u8],
-    bump: u8,
+    _owner: &Pubkey,
+    _name_bytes: &[u8],
+    _bump: u8,
 ) -> Result<()> {
     let to = remaining_accounts.get(0).ok_or(TeamWalletError::InvalidRemainingAccounts)?;
     require!(to.key() == recipient, TeamWalletError::InvalidData);
     
-    let seeds: &[&[u8]] = &[b"team_wallet", owner.as_ref(), name_bytes, &[bump]];
-    let signer_seeds = &[seeds];
+    // For PDAs with data, we must use direct lamport manipulation
+    // system_instruction::transfer doesn't work for accounts with data
+    let team_wallet_lamports = team_wallet.lamports();
+    require!(team_wallet_lamports >= amount, TeamWalletError::InsufficientBalance);
     
-    let ix = system_instruction::transfer(&team_wallet.key(), &recipient, amount);
-    invoke_signed(&ix, &[team_wallet.clone(), to.clone()], signer_seeds)?;
+    **team_wallet.try_borrow_mut_lamports()? -= amount;
+    **to.try_borrow_mut_lamports()? += amount;
     
     msg!("Transferred {} lamports", amount);
     Ok(())
