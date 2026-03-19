@@ -12,14 +12,13 @@ pub fn create_proposal(
     let team_wallet = &mut ctx.accounts.team_wallet;
     let proposer = &ctx.accounts.proposer;
 
-    // Verify proposer is authorized
-    let is_voter = team_wallet.voters.contains(&proposer.key());
+    // Verify proposer is authorized (only owner or contributor can create proposals)
     let is_contributor = team_wallet.contributors.contains(&proposer.key());
     let is_owner = team_wallet.owner == proposer.key();
 
     require!(
-        is_voter || is_contributor || is_owner,
-        TeamWalletError::NotAVoterOrContributor
+        is_contributor || is_owner,
+        TeamWalletError::NotAuthorizedToCreate
     );
 
     // Validate action-specific requirements
@@ -29,22 +28,24 @@ pub fn create_proposal(
     let created_at = clock.unix_timestamp;
     let expires_at = created_at + Proposal::DEFAULT_EXPIRY;
 
-    // Build snapshot of eligible voters
-    let mut snapshot = team_wallet.voters.clone();
-    snapshot.extend(team_wallet.contributors.clone());
-
-    // Find proposer's index for auto-vote
-    let proposer_index = snapshot
-        .iter()
-        .position(|k| k == &proposer.key())
-        .unwrap_or(0) as u8;
-
     // Initialize proposal
     proposal.team_wallet = team_wallet.key();
     proposal.proposer = proposer.key();
     proposal.action = action.clone();
     
-    proposal.votes_for = 1; // Proposer auto-votes
+    // Snapshot includes ALL who can vote: voters + contributors
+    // (owner is already in voters[0])
+    let mut snapshot = team_wallet.voters.clone();
+    snapshot.extend(team_wallet.contributors.clone());
+    
+    // Find proposer's index for auto-vote
+    let proposer_index = snapshot
+        .iter()
+        .position(|k| k == &proposer.key())
+        .unwrap_or(0) as u8;
+    
+    // Proposer auto-votes
+    proposal.votes_for = 1;
     proposal.votes_against = 0;
     proposal.voters_voted = vec![proposer_index];
     proposal.snapshot_voters = snapshot;

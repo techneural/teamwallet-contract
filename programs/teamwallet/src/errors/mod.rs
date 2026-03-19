@@ -46,6 +46,9 @@ pub enum TeamWalletError {
     #[msg("Not a voter or contributor")]
     NotAVoterOrContributor,
 
+    #[msg("Not authorized to create proposals (only owner/contributors)")]
+    NotAuthorizedToCreate,
+
     #[msg("Not authorized to vote")]
     NotAuthorizedToVote,
 

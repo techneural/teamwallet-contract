@@ -156,9 +156,9 @@ describe("TeamWallet Unified", () => {
       console.log("✓ TransferSol proposal created");
     });
 
-    it("should fail if non-voter tries to create proposal", async () => {
-      const nonVoter = Keypair.generate();
-      await fundAccount(provider, nonVoter.publicKey, 0.1 * LAMPORTS_PER_SOL);
+    it("should fail if random user tries to create proposal", async () => {
+      const randomUser = Keypair.generate();
+      await fundAccount(provider, randomUser.publicKey, 0.1 * LAMPORTS_PER_SOL);
 
       const nonce = generateNonce();
       const [proposalPda] = deriveProposalPda(
@@ -176,15 +176,45 @@ describe("TeamWallet Unified", () => {
           .accounts({
             proposal: proposalPda,
             teamWallet: teamWalletPda,
-            proposer: nonVoter.publicKey,
+            proposer: randomUser.publicKey,
             systemProgram: SystemProgram.programId,
           })
-          .signers([nonVoter])
+          .signers([randomUser])
           .rpc();
         expect.fail("Should have thrown an error");
       } catch (err: any) {
-        expect(err.message).to.include("NotAVoterOrContributor");
-        console.log("✓ Non-voter rejected");
+        expect(err.message).to.include("NotAuthorizedToCreate");
+        console.log("✓ Random user rejected");
+      }
+    });
+
+    it("should fail if voter tries to create proposal", async () => {
+      // Voters can only VOTE, not create proposals
+      const nonce = generateNonce();
+      const [proposalPda] = deriveProposalPda(
+        program.programId,
+        teamWalletPda,
+        nonce.publicKey
+      );
+
+      try {
+        await program.methods
+          .createProposal(
+            Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
+            nonce.publicKey
+          )
+          .accounts({
+            proposal: proposalPda,
+            teamWallet: teamWalletPda,
+            proposer: voter1.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([voter1])
+          .rpc();
+        expect.fail("Should have thrown an error");
+      } catch (err: any) {
+        expect(err.message).to.include("NotAuthorizedToCreate");
+        console.log("✓ Voter cannot create proposals");
       }
     });
   });
@@ -531,7 +561,45 @@ describe("TeamWallet Unified", () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe("5. Cancel Proposals", () => {
-    it("should allow proposer to cancel", async () => {
+    it("should allow proposer to cancel their own proposal", async () => {
+      // First ensure contributor1 is added (they can create proposals)
+      let teamWallet = await program.account.teamWallet.fetch(teamWalletPda);
+      const isContributor = teamWallet.contributors.some(
+        c => c.toString() === contributor1.publicKey.toString()
+      );
+      
+      if (!isContributor) {
+        await ensureOwnerFunded();
+        const addNonce = generateNonce();
+        const [addProposalPda] = deriveProposalPda(
+          program.programId,
+          teamWalletPda,
+          addNonce.publicKey
+        );
+        
+        await program.methods
+          .createProposal(Actions.addContributor(contributor1.publicKey), addNonce.publicKey)
+          .accounts({
+            proposal: addProposalPda,
+            teamWallet: teamWalletPda,
+            proposer: owner.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([owner])
+          .rpc();
+        
+        await program.methods
+          .executeProposal(null)
+          .accounts({
+            proposal: addProposalPda,
+            teamWallet: teamWalletPda,
+            executor: owner.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([owner])
+          .rpc();
+      }
+
       const nonce = generateNonce();
       const [proposalPda] = deriveProposalPda(
         program.programId,
@@ -539,6 +607,7 @@ describe("TeamWallet Unified", () => {
         nonce.publicKey
       );
 
+      // Contributor creates proposal
       await program.methods
         .createProposal(
           Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
@@ -547,26 +616,27 @@ describe("TeamWallet Unified", () => {
         .accounts({
           proposal: proposalPda,
           teamWallet: teamWalletPda,
-          proposer: voter1.publicKey,
+          proposer: contributor1.publicKey,
           systemProgram: SystemProgram.programId,
         })
-        .signers([voter1])
+        .signers([contributor1])
         .rpc();
 
+      // Contributor cancels their own proposal
       await program.methods
         .cancelProposal()
         .accounts({
           proposal: proposalPda,
           teamWallet: teamWalletPda,
-          canceller: voter1.publicKey,
+          canceller: contributor1.publicKey,
         })
-        .signers([voter1])
+        .signers([contributor1])
         .rpc();
 
       const proposal = await program.account.proposal.fetch(proposalPda);
       expect(proposal.cancelled).to.equal(true);
       
-      console.log("✓ Proposer cancelled successfully");
+      console.log("✓ Proposer (contributor) cancelled successfully");
     });
 
     it("should fail to execute cancelled proposal", async () => {
@@ -624,7 +694,7 @@ describe("TeamWallet Unified", () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe("6. Contributor Permissions", () => {
-    it("contributor can create proposals but not vote", async () => {
+    it("contributor can create proposals and vote on others", async () => {
       // First ensure contributor1 is actually a contributor
       let teamWallet = await program.account.teamWallet.fetch(teamWalletPda);
       const isContributor = teamWallet.contributors.some(
@@ -667,21 +737,21 @@ describe("TeamWallet Unified", () => {
         console.log("  ✓ Contributor added");
       }
       
-      const nonce = generateNonce();
-      const [proposalPda] = deriveProposalPda(
+      // Test 1: Contributor creates proposal (auto-votes)
+      const nonce1 = generateNonce();
+      const [proposalPda1] = deriveProposalPda(
         program.programId,
         teamWalletPda,
-        nonce.publicKey
+        nonce1.publicKey
       );
 
-      // Contributor creates proposal
       await program.methods
         .createProposal(
           Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
-          nonce.publicKey
+          nonce1.publicKey
         )
         .accounts({
-          proposal: proposalPda,
+          proposal: proposalPda1,
           teamWallet: teamWalletPda,
           proposer: contributor1.publicKey,
           systemProgram: SystemProgram.programId,
@@ -689,18 +759,17 @@ describe("TeamWallet Unified", () => {
         .signers([contributor1])
         .rpc();
 
-      const proposal = await program.account.proposal.fetch(proposalPda);
+      let proposal = await program.account.proposal.fetch(proposalPda1);
       expect(proposal.proposer.toString()).to.equal(contributor1.publicKey.toString());
-      expect(proposal.votesFor).to.equal(0); // Contributors don't auto-vote
-      
-      console.log("✓ Contributor created proposal (no auto-vote)");
+      expect(proposal.votesFor).to.equal(1); // Auto-vote
+      console.log("✓ Contributor created proposal (with auto-vote)");
 
-      // Contributor cannot vote
+      // Test 2: Contributor cannot vote AGAIN on same proposal (already voted)
       try {
         await program.methods
           .voteProposal(true)
           .accounts({
-            proposal: proposalPda,
+            proposal: proposalPda1,
             teamWallet: teamWalletPda,
             voter: contributor1.publicKey,
           })
@@ -708,9 +777,47 @@ describe("TeamWallet Unified", () => {
           .rpc();
         expect.fail("Should have thrown an error");
       } catch (err: any) {
-        expect(err.message).to.include("NotAuthorizedToVote");
-        console.log("✓ Contributor voting prevented");
+        expect(err.message).to.include("AlreadyVoted");
+        console.log("✓ Contributor cannot double-vote");
       }
+
+      // Test 3: Contributor CAN vote on owner's proposal
+      await ensureOwnerFunded();
+      const nonce2 = generateNonce();
+      const [proposalPda2] = deriveProposalPda(
+        program.programId,
+        teamWalletPda,
+        nonce2.publicKey
+      );
+
+      await program.methods
+        .createProposal(
+          Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
+          nonce2.publicKey
+        )
+        .accounts({
+          proposal: proposalPda2,
+          teamWallet: teamWalletPda,
+          proposer: owner.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([owner])
+        .rpc();
+
+      // Contributor votes on owner's proposal
+      await program.methods
+        .voteProposal(true)
+        .accounts({
+          proposal: proposalPda2,
+          teamWallet: teamWalletPda,
+          voter: contributor1.publicKey,
+        })
+        .signers([contributor1])
+        .rpc();
+
+      proposal = await program.account.proposal.fetch(proposalPda2);
+      expect(proposal.votesFor).to.equal(2); // Owner auto-vote + contributor vote
+      console.log("✓ Contributor voted on owner's proposal");
     });
   });
 });
