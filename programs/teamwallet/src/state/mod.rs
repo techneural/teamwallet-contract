@@ -1,15 +1,5 @@
 pub mod team_wallet;
 pub mod proposal;
-pub mod upgrade_proposal;
-pub mod delete_proposal;
-pub mod token_proposal;
-pub mod swap_intent;
-pub mod threshold_proposal;
 
 pub use team_wallet::*;
 pub use proposal::*;
-pub use upgrade_proposal::*;
-pub use delete_proposal::*;
-pub use token_proposal::*;
-pub use swap_intent::*;
-pub use threshold_proposal::*;

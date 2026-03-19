@@ -2,3 +2,6 @@ target
 node_modules
 Cargo.lock
 package-lock.json
+.anchor
+yarn.lock
+.DS_Store

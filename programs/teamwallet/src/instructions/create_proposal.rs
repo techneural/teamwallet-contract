@@ -1,66 +1,127 @@
-use crate::errors::TeamWalletError;
-use crate::state::{Proposal, TeamWallet};
 use anchor_lang::prelude::*;
+use crate::state::{TeamWallet, Proposal, ProposalAction};
+use crate::errors::TeamWalletError;
 
-pub fn create_proposal_sol(
-    ctx: Context<CreateProposalSol>,
-    amount: u64,
-    recipient: Pubkey,
-    _random_pubkey: Pubkey,
+/// Create any type of proposal
+pub fn create_proposal(
+    ctx: Context<CreateProposal>,
+    action: ProposalAction,
+    nonce: Pubkey,
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
-    let team_wallet = &ctx.accounts.team_wallet;
+    let team_wallet = &mut ctx.accounts.team_wallet;
+    let proposer = &ctx.accounts.proposer;
 
-    let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
-    let is_contributor = team_wallet
-        .contributors
-        .contains(&ctx.accounts.proposer.key());
-    let is_owner = team_wallet.owner == ctx.accounts.proposer.key();
+    // Verify proposer is authorized
+    let is_voter = team_wallet.voters.contains(&proposer.key());
+    let is_contributor = team_wallet.contributors.contains(&proposer.key());
+    let is_owner = team_wallet.owner == proposer.key();
 
     require!(
         is_voter || is_contributor || is_owner,
         TeamWalletError::NotAVoterOrContributor
     );
-    
-    require!(amount > 0, TeamWalletError::InvalidAmount);
+
+    // Validate action-specific requirements
+    validate_action(&action)?;
 
     let clock = Clock::get()?;
     let created_at = clock.unix_timestamp;
     let expires_at = created_at + Proposal::DEFAULT_EXPIRY;
 
-    proposal.team_wallet = team_wallet.key();
-    proposal.snapshot_voters = team_wallet.voters.clone();
-    proposal.snapshot_voters.extend(team_wallet.contributors.clone());
+    // Build snapshot of eligible voters
+    let mut snapshot = team_wallet.voters.clone();
+    snapshot.extend(team_wallet.contributors.clone());
 
-    proposal.proposer = ctx.accounts.proposer.key();
-    proposal.amount = amount;
-    proposal.recipient = recipient;
-    proposal.is_token_transfer = false;
-    proposal.mint = None;
-    proposal.votes_for = 1;
-
-    let proposer_index = proposal
-        .snapshot_voters
+    // Find proposer's index for auto-vote
+    let proposer_index = snapshot
         .iter()
-        .position(|k| k == &ctx.accounts.proposer.key())
+        .position(|k| k == &proposer.key())
         .unwrap_or(0) as u8;
-    proposal.voters_voted = vec![proposer_index];
 
+    // Initialize proposal
+    proposal.team_wallet = team_wallet.key();
+    proposal.proposer = proposer.key();
+    proposal.action = action.clone();
+    
+    proposal.votes_for = 1; // Proposer auto-votes
     proposal.votes_against = 0;
+    proposal.voters_voted = vec![proposer_index];
+    proposal.snapshot_voters = snapshot;
+    
     proposal.executed = false;
     proposal.cancelled = false;
-    proposal.bump = ctx.bumps.proposal;
     proposal.created_at = created_at;
     proposal.expires_at = expires_at;
+    
+    // For swaps, set execution window
+    proposal.execution_window = if action.requires_execution_window() {
+        Proposal::DEFAULT_EXECUTION_WINDOW
+    } else {
+        0
+    };
+    
+    // Check if auto-approved (single signer or threshold met)
+    if proposal.votes_for >= team_wallet.vote_threshold {
+        proposal.approved = true;
+        proposal.approved_at = created_at;
+        msg!("Proposal auto-approved");
+    } else {
+        proposal.approved = false;
+        proposal.approved_at = 0;
+    }
+    
+    proposal.bump = ctx.bumps.proposal;
+    proposal.nonce = nonce;
 
-    msg!("SOL proposal created, expires at {}", expires_at);
+    // Increment proposal count
+    team_wallet.proposal_count = team_wallet.proposal_count.saturating_add(1);
+
+    msg!("Proposal #{} created, expires at {}", 
+        team_wallet.proposal_count, expires_at);
 
     Ok(())
 }
 
+/// Validate action-specific requirements
+fn validate_action(action: &ProposalAction) -> Result<()> {
+    match action {
+        ProposalAction::TransferSol { amount, .. } => {
+            require!(*amount > 0, TeamWalletError::InvalidAmount);
+        }
+        ProposalAction::TransferToken { amount, .. } => {
+            require!(*amount > 0, TeamWalletError::InvalidAmount);
+        }
+        ProposalAction::Swap { 
+            input_mint, 
+            output_mint, 
+            amount_in,
+            min_amount_out,
+            slippage_bps,
+        } => {
+            require!(*amount_in > 0, TeamWalletError::InvalidAmount);
+            require!(*min_amount_out > 0, TeamWalletError::InvalidAmount);
+            require!(input_mint != output_mint, TeamWalletError::SameMintSwap);
+            require!(*slippage_bps <= 5000, TeamWalletError::SlippageTooHigh);
+        }
+        ProposalAction::ChangeThreshold { new_threshold } => {
+            require!(*new_threshold >= 1, TeamWalletError::InvalidThreshold);
+        }
+        ProposalAction::TokenMint { amount, .. } => {
+            require!(*amount > 0, TeamWalletError::InvalidAmount);
+        }
+        ProposalAction::TokenBurn { amount, .. } => {
+            require!(*amount > 0, TeamWalletError::InvalidAmount);
+        }
+        // Other actions don't need validation here
+        _ => {}
+    }
+    Ok(())
+}
+
 #[derive(Accounts)]
-#[instruction(amount: u64, recipient: Pubkey, random_pubkey: Pubkey)]
-pub struct CreateProposalSol<'info> {
+#[instruction(action: ProposalAction, nonce: Pubkey)]
+pub struct CreateProposal<'info> {
     #[account(
         init,
         payer = proposer,
@@ -68,113 +129,21 @@ pub struct CreateProposalSol<'info> {
         seeds = [
             b"proposal",
             team_wallet.key().as_ref(),
-            random_pubkey.as_ref(),
+            nonce.as_ref(),
         ],
         bump
     )]
     pub proposal: Account<'info, Proposal>,
 
+    #[account(
+        mut,
+        seeds = [b"team_wallet", team_wallet.owner.as_ref(), team_wallet.name.as_bytes()],
+        bump = team_wallet.bump
+    )]
     pub team_wallet: Account<'info, TeamWallet>,
 
     #[account(mut)]
     pub proposer: Signer<'info>,
 
-    pub system_program: Program<'info, System>,
-}
-
-use anchor_spl::associated_token::AssociatedToken;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-
-pub fn create_proposal_token(
-    ctx: Context<CreateProposalToken>,
-    amount: u64,
-    recipient: Pubkey,
-    mint: Pubkey,
-    _random_pubkey: Pubkey,
-) -> Result<()> {
-    let proposal = &mut ctx.accounts.proposal;
-    let team_wallet = &ctx.accounts.team_wallet;
-
-    let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
-    let is_contributor = team_wallet
-        .contributors
-        .contains(&ctx.accounts.proposer.key());
-    let is_owner = team_wallet.owner == ctx.accounts.proposer.key();
-
-    require!(
-        is_voter || is_contributor || is_owner,
-        TeamWalletError::NotAVoterOrContributor
-    );
-    
-    require!(amount > 0, TeamWalletError::InvalidAmount);
-
-    let clock = Clock::get()?;
-    let created_at = clock.unix_timestamp;
-    let expires_at = created_at + Proposal::DEFAULT_EXPIRY;
-
-    proposal.team_wallet = team_wallet.key();
-    proposal.snapshot_voters = team_wallet.voters.clone();
-    proposal.snapshot_voters.extend(team_wallet.contributors.clone());
-
-    proposal.proposer = ctx.accounts.proposer.key();
-    proposal.amount = amount;
-    proposal.recipient = recipient;
-    proposal.is_token_transfer = true;
-    proposal.mint = Some(mint);
-    proposal.votes_for = 1;
-
-    let proposer_index = proposal
-        .snapshot_voters
-        .iter()
-        .position(|k| k == &ctx.accounts.proposer.key())
-        .unwrap_or(0) as u8;
-    proposal.voters_voted = vec![proposer_index];
-
-    proposal.votes_against = 0;
-    proposal.executed = false;
-    proposal.cancelled = false;
-    proposal.bump = ctx.bumps.proposal;
-    proposal.created_at = created_at;
-    proposal.expires_at = expires_at;
-
-    msg!("Token proposal created, expires at {}", expires_at);
-
-    Ok(())
-}
-
-#[derive(Accounts)]
-#[instruction(amount: u64, recipient: Pubkey, mint: Pubkey, random_pubkey: Pubkey)]
-pub struct CreateProposalToken<'info> {
-    #[account(
-        init,
-        payer = proposer,
-        space = Proposal::SPACE,
-        seeds = [
-            b"proposal",
-            team_wallet.key().as_ref(),
-            random_pubkey.as_ref(),
-        ],
-        bump
-    )]
-    pub proposal: Account<'info, Proposal>,
-
-    pub team_wallet: Account<'info, TeamWallet>,
-
-    #[account(mut)]
-    pub proposer: Signer<'info>,
-
-    #[account(
-        init_if_needed,
-        payer = proposer,
-        associated_token::mint = token_mint,
-        associated_token::authority = team_wallet,
-        associated_token::token_program = token_program,  
-    )]
-    pub team_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
-
-    pub token_mint: InterfaceAccount<'info, Mint>,
-
-    pub token_program: Interface<'info, TokenInterface>,  
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }

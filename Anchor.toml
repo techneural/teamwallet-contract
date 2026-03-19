@@ -6,14 +6,20 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-teamwallet = "jRr8unX8ncDBNiBMfVSUj7D2tUnM7V6199eTiFgJJ7V"
+teamwallet = "2CeVF4gvaMV6GGF7pSbZgyrP7YtWwALRVAi8CcPP3t72"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "https://devnet.helius-rpc.com/?api-key=e28687eb-0946-4d1b-9205-31804b14cf39"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[[test.validator.clone]]
+address = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+
+[[test.validator.clone]]
+address = "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
