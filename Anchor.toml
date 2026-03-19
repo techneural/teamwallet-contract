@@ -5,6 +5,10 @@ package_manager = "yarn"
 resolution = true
 skip-lint = false
 
+
+[programs.localnet]
+teamwallet = "2CeVF4gvaMV6GGF7pSbZgyrP7YtWwALRVAi8CcPP3t72"
+
 [programs.devnet]
 teamwallet = "2CeVF4gvaMV6GGF7pSbZgyrP7YtWwALRVAi8CcPP3t72"
 
@@ -12,7 +16,7 @@ teamwallet = "2CeVF4gvaMV6GGF7pSbZgyrP7YtWwALRVAi8CcPP3t72"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "https://devnet.helius-rpc.com/?api-key=e28687eb-0946-4d1b-9205-31804b14cf39"
+cluster = "http://localhost:8899"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

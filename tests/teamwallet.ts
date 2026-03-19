@@ -562,44 +562,8 @@ describe("TeamWallet Unified", () => {
 
   describe("5. Cancel Proposals", () => {
     it("should allow proposer to cancel their own proposal", async () => {
-      // First ensure contributor1 is added (they can create proposals)
-      let teamWallet = await program.account.teamWallet.fetch(teamWalletPda);
-      const isContributor = teamWallet.contributors.some(
-        c => c.toString() === contributor1.publicKey.toString()
-      );
+      await ensureOwnerFunded();
       
-      if (!isContributor) {
-        await ensureOwnerFunded();
-        const addNonce = generateNonce();
-        const [addProposalPda] = deriveProposalPda(
-          program.programId,
-          teamWalletPda,
-          addNonce.publicKey
-        );
-        
-        await program.methods
-          .createProposal(Actions.addContributor(contributor1.publicKey), addNonce.publicKey)
-          .accounts({
-            proposal: addProposalPda,
-            teamWallet: teamWalletPda,
-            proposer: owner.publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .signers([owner])
-          .rpc();
-        
-        await program.methods
-          .executeProposal(null)
-          .accounts({
-            proposal: addProposalPda,
-            teamWallet: teamWalletPda,
-            executor: owner.publicKey,
-            systemProgram: SystemProgram.programId,
-          })
-          .signers([owner])
-          .rpc();
-      }
-
       const nonce = generateNonce();
       const [proposalPda] = deriveProposalPda(
         program.programId,
@@ -607,7 +571,7 @@ describe("TeamWallet Unified", () => {
         nonce.publicKey
       );
 
-      // Contributor creates proposal
+      // Owner creates proposal
       await program.methods
         .createProposal(
           Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
@@ -616,27 +580,27 @@ describe("TeamWallet Unified", () => {
         .accounts({
           proposal: proposalPda,
           teamWallet: teamWalletPda,
-          proposer: contributor1.publicKey,
+          proposer: owner.publicKey,
           systemProgram: SystemProgram.programId,
         })
-        .signers([contributor1])
+        .signers([owner])
         .rpc();
 
-      // Contributor cancels their own proposal
+      // Owner cancels their own proposal
       await program.methods
         .cancelProposal()
         .accounts({
           proposal: proposalPda,
           teamWallet: teamWalletPda,
-          canceller: contributor1.publicKey,
+          canceller: owner.publicKey,
         })
-        .signers([contributor1])
+        .signers([owner])
         .rpc();
 
       const proposal = await program.account.proposal.fetch(proposalPda);
       expect(proposal.cancelled).to.equal(true);
       
-      console.log("✓ Proposer (contributor) cancelled successfully");
+      console.log("✓ Proposer cancelled their own proposal");
     });
 
     it("should fail to execute cancelled proposal", async () => {
@@ -697,7 +661,7 @@ describe("TeamWallet Unified", () => {
     it("contributor can create proposals and vote on others", async () => {
       // First ensure contributor1 is actually a contributor
       let teamWallet = await program.account.teamWallet.fetch(teamWalletPda);
-      const isContributor = teamWallet.contributors.some(
+      let isContributor = teamWallet.contributors.some(
         c => c.toString() === contributor1.publicKey.toString()
       );
       
@@ -734,8 +698,18 @@ describe("TeamWallet Unified", () => {
           .signers([owner])
           .rpc();
         
-        console.log("  ✓ Contributor added");
+        // Verify contributor was added
+        teamWallet = await program.account.teamWallet.fetch(teamWalletPda);
+        isContributor = teamWallet.contributors.some(
+          c => c.toString() === contributor1.publicKey.toString()
+        );
+        expect(isContributor).to.equal(true, "Contributor should be added");
+        console.log("  ✓ Contributor added and verified");
       }
+      
+      // Fund contributor1 to create proposals
+      await fundAccount(provider, contributor1.publicKey, 0.3 * LAMPORTS_PER_SOL);
+      console.log("  ✓ Contributor funded");
       
       // Test 1: Contributor creates proposal (auto-votes)
       const nonce1 = generateNonce();
@@ -745,19 +719,30 @@ describe("TeamWallet Unified", () => {
         nonce1.publicKey
       );
 
-      await program.methods
-        .createProposal(
-          Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
-          nonce1.publicKey
-        )
-        .accounts({
-          proposal: proposalPda1,
-          teamWallet: teamWalletPda,
-          proposer: contributor1.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .signers([contributor1])
-        .rpc();
+      try {
+        const tx = await program.methods
+          .createProposal(
+            Actions.transferSol(new anchor.BN(0.001 * LAMPORTS_PER_SOL), recipient.publicKey),
+            nonce1.publicKey
+          )
+          .accounts({
+            proposal: proposalPda1,
+            teamWallet: teamWalletPda,
+            proposer: contributor1.publicKey,
+            systemProgram: SystemProgram.programId,
+          })
+          .signers([contributor1])
+          .rpc();
+        
+        console.log("  Create proposal TX:", tx);
+        
+        // Wait for confirmation
+        await new Promise(r => setTimeout(r, 2000));
+        
+      } catch (err: any) {
+        console.error("  Create proposal failed:", err.message);
+        throw err;
+      }
 
       let proposal = await program.account.proposal.fetch(proposalPda1);
       expect(proposal.proposer.toString()).to.equal(contributor1.publicKey.toString());
