@@ -18,6 +18,10 @@ pub fn create_upgrade_proposal(
 
     require!(is_voter || is_contributor || is_owner, TeamWalletError::NotAVoterOrContributor);
 
+    let clock = Clock::get()?;
+    let created_at = clock.unix_timestamp;
+    let expires_at = created_at + UpgradeProposal::DEFAULT_EXPIRY;
+
     proposal.team_wallet = team_wallet.key();
     proposal.proposer = ctx.accounts.proposer.key();
     proposal.new_buffer = new_buffer;
@@ -26,11 +30,12 @@ pub fn create_upgrade_proposal(
     proposal.voters_voted = vec![ctx.accounts.proposer.key()];
     proposal.votes_against = 0;
     proposal.executed = false;
+    proposal.cancelled = false;
     proposal.bump = ctx.bumps.upgrade_proposal;
+    proposal.created_at = created_at;
+    proposal.expires_at = expires_at;
 
-    msg!("Upgrade proposal created by: {}", ctx.accounts.proposer.key());
-    msg!("New buffer: {}", new_buffer);
-    msg!("Spill account (refund): {}", spill_account);
+    msg!("Upgrade proposal created, expires at {}", expires_at);
     Ok(())
 }
 
@@ -38,8 +43,15 @@ pub fn vote_upgrade_proposal(ctx: Context<VoteUpgradeProposal>, vote_for: bool) 
     let proposal = &mut ctx.accounts.upgrade_proposal;
     let team_wallet = &ctx.accounts.team_wallet;
     let voter_key = ctx.accounts.voter.key();
+    
+    let clock = Clock::get()?;
 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
 
     let is_voter = team_wallet.voters.contains(&voter_key);
     let is_contributor = team_wallet.contributors.contains(&voter_key);
@@ -54,17 +66,23 @@ pub fn vote_upgrade_proposal(ctx: Context<VoteUpgradeProposal>, vote_for: bool) 
         proposal.votes_against = proposal.votes_against.saturating_add(1);
     }
 
-    msg!("Vote: {} voted {} on upgrade proposal", voter_key, if vote_for { "FOR" } else { "AGAINST" });
+    msg!("Vote: {} voted {}", voter_key, if vote_for { "FOR" } else { "AGAINST" });
     Ok(())
 }
 
 pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<()> {
     let proposal = &mut ctx.accounts.upgrade_proposal;
     let team_wallet = &ctx.accounts.team_wallet;
+    
+    let clock = Clock::get()?;
 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
 
-    // Owner OR any contributor can execute the upgrade
     let executor_key = ctx.accounts.executor.key();
     require!(
         executor_key == team_wallet.owner ||
@@ -89,8 +107,8 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
     let upgrade_ix = bpf_loader_upgradeable::upgrade(
         &ctx.accounts.program_id.key(),
         &ctx.accounts.buffer.key(),
-        &ctx.accounts.team_wallet.key(),   // authority = team wallet PDA
-        &ctx.accounts.spill_account.key(), // spill = stored refund address
+        &ctx.accounts.team_wallet.key(),
+        &ctx.accounts.spill_account.key(),
     );
 
     invoke_signed(
@@ -116,9 +134,9 @@ pub fn execute_upgrade_proposal(ctx: Context<ExecuteUpgradeProposal>) -> Result<
 pub fn close_upgrade_proposal(ctx: Context<CloseUpgradeProposal>) -> Result<()> {
     let proposal = &ctx.accounts.upgrade_proposal;
     let team_wallet = &ctx.accounts.team_wallet;
+    
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
 
-    // Owner OR any contributor can cancel/close an upgrade proposal
     let closer_key = ctx.accounts.proposer.key();
     require!(
         closer_key == team_wallet.owner ||
@@ -126,10 +144,9 @@ pub fn close_upgrade_proposal(ctx: Context<CloseUpgradeProposal>) -> Result<()> 
         TeamWalletError::NotAVoterOrContributor
     );
 
-    msg!("Upgrade proposal closed by: {}. Rent refunded to: {}", closer_key, ctx.accounts.spill_account.key());
+    msg!("Upgrade proposal closed. Rent refunded.");
     Ok(())
 }
-
 
 pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Result<()> {
     let team_wallet = &ctx.accounts.team_wallet;
@@ -157,7 +174,6 @@ pub fn transfer_program_authority(ctx: Context<TransferProgramAuthority>) -> Res
     msg!("Program upgrade authority transferred to team wallet");
     Ok(())
 }
-
 
 #[derive(Accounts)]
 #[instruction(new_buffer: Pubkey, spill_account: Pubkey)]
@@ -217,7 +233,7 @@ pub struct ExecuteUpgradeProposal<'info> {
     )]
     pub team_wallet: Account<'info, TeamWallet>,
 
-    /// CHECK: Must be the team wallet owner
+    /// CHECK: Executor
     #[account(mut)]
     pub executor: Signer<'info>,
 
@@ -233,7 +249,7 @@ pub struct ExecuteUpgradeProposal<'info> {
     #[account(mut)]
     pub buffer: AccountInfo<'info>,
 
-    /// CHECK: Refund address — verified against proposal.spill_account
+    /// CHECK: Refund address
     #[account(mut)]
     pub spill_account: AccountInfo<'info>,
 
@@ -264,7 +280,7 @@ pub struct CloseUpgradeProposal<'info> {
     #[account(mut)]
     pub proposer: Signer<'info>,
 
-    /// CHECK: Receives rent lamports — must match proposal.spill_account
+    /// CHECK: Receives rent lamports
     #[account(mut, constraint = spill_account.key() == upgrade_proposal.spill_account)]
     pub spill_account: AccountInfo<'info>,
 

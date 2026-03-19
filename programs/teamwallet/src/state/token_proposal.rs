@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 pub enum TokenAction {
     Mint,
     Burn,
-    FreezeAccount,  // FIXED: Was "FreezAccount"
+    FreezeAccount,
     ThawAccount,
     SetMintAuthority,
     SetFreezeAuthority,
@@ -34,19 +34,24 @@ pub struct TokenProposal {
     pub interest_rate: Option<i16>,
     pub votes_for: u8,
     pub votes_against: u8,
-    // Stores the INDEX of each voter in snapshot_voters — 1 byte per member
     pub voters_voted: Vec<u8>,
     pub executed: bool,
+    pub cancelled: bool,
     pub bump: u8,
-    // snapshot_voters = voters(max 15) + contributors(max 15) = 30 max
-    // NOTE: owner is already inside voters[], do NOT push owner separately
     pub snapshot_voters: Vec<Pubkey>,
+    
+    // Expiry fields
+    pub created_at: i64,
+    pub expires_at: i64,
 }
 
 impl TokenProposal {
     pub const MAX_VOTERS: usize = 15;
     pub const MAX_CONTRIBUTORS: usize = 15;
-    pub const MAX_SNAPSHOT: usize = Self::MAX_VOTERS + Self::MAX_CONTRIBUTORS; // 30
+    pub const MAX_SNAPSHOT: usize = Self::MAX_VOTERS + Self::MAX_CONTRIBUTORS;
+    
+    /// Default expiry: 7 days
+    pub const DEFAULT_EXPIRY: i64 = 7 * 24 * 60 * 60;
 
     pub const SPACE: usize =
         8 +                                // discriminator
@@ -62,10 +67,17 @@ impl TokenProposal {
         3 +                                // interest_rate Option<i16>
         1 +                                // votes_for
         1 +                                // votes_against
-        4 + Self::MAX_SNAPSHOT +           // voters_voted Vec<u8> → 1 byte per member (30 max)
+        4 + Self::MAX_SNAPSHOT +           // voters_voted Vec<u8>
         1 +                                // executed
+        1 +                                // cancelled
         1 +                                // bump
-        4 + (32 * Self::MAX_SNAPSHOT);     // snapshot_voters Vec<Pubkey> → 30 entries
+        4 + (32 * Self::MAX_SNAPSHOT) +    // snapshot_voters Vec<Pubkey>
+        8 +                                // created_at
+        8;                                 // expires_at
+        
+    pub fn is_expired(&self, current_time: i64) -> bool {
+        current_time > self.expires_at
+    }
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

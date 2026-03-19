@@ -9,7 +9,7 @@ use anchor_spl::token_interface::{
     TokenInterface,
 };
 
-use spl_token_metadata_interface::instruction::{update_field};
+use spl_token_metadata_interface::instruction::update_field;
 use spl_token_metadata_interface::state::Field;
 
 use crate::errors::TeamWalletError;
@@ -88,6 +88,10 @@ pub fn create_token_proposal(
         _ => {}
     }
 
+    let clock = Clock::get()?;
+    let created_at = clock.unix_timestamp;
+    let expires_at = created_at + TokenProposal::DEFAULT_EXPIRY;
+
     proposal.proposal_id = proposal_id;
     proposal.team_wallet = team_wallet.key();
 
@@ -112,12 +116,12 @@ pub fn create_token_proposal(
     proposal.voters_voted = vec![proposer_index];
     proposal.votes_against = 0;
     proposal.executed = false;
+    proposal.cancelled = false;
     proposal.bump = ctx.bumps.token_proposal;
+    proposal.created_at = created_at;
+    proposal.expires_at = expires_at;
 
-    msg!(
-        "Token proposal created by: {}",
-        ctx.accounts.proposer.key()
-    );
+    msg!("Token proposal created, expires at {}", expires_at);
 
     Ok(())
 }
@@ -125,14 +129,17 @@ pub fn create_token_proposal(
 pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> {
     let proposal = &mut ctx.accounts.token_proposal;
     let team_wallet = &ctx.accounts.team_wallet;
+    
+    let clock = Clock::get()?;
 
+    require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
     require!(
-        !proposal.executed,
-        TeamWalletError::ProposalAlreadyExecuted
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
     );
 
-    // FIXED: Use absolute threshold (same as other proposal types)
-    // vote_threshold is an absolute count (e.g. 2 means "need 2 votes")
+    // Use absolute threshold (not float math)
     require!(
         proposal.votes_for >= team_wallet.vote_threshold,
         TeamWalletError::InsufficientVotes
@@ -411,11 +418,9 @@ pub struct ExecuteTokenProposal<'info> {
     #[account(mut)]
     pub mint: InterfaceAccount<'info, Mint>,
 
-   
     #[account(mut)]
     pub token_account: Option<InterfaceAccount<'info, TokenAccount>>,
 
-   
     #[account(mut)]
     pub destination_token_account: Option<InterfaceAccount<'info, TokenAccount>>,
 

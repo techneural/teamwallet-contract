@@ -10,29 +10,24 @@ pub struct Proposal {
     pub mint: Option<Pubkey>,
     pub votes_for: u8,
     pub votes_against: u8,
-    // Stores the INDEX of each voter in snapshot_voters — 1 byte per member
-    // instead of 32 bytes per member (Vec<Pubkey>)
     pub voters_voted: Vec<u8>,
-    // Full pubkeys stored once at proposal creation.
-    // Includes BOTH voters AND contributors (max 15 + 15 = 30 total).
     pub snapshot_voters: Vec<Pubkey>,
     pub executed: bool,
+    pub cancelled: bool,
     pub bump: u8,
-    pub is_swap_proposal: bool,
-    pub input_mint: Option<Pubkey>,
-    pub output_mint: Option<Pubkey>,
-    pub min_output_amount: Option<u64>,
-    pub slippage_bps: Option<u16>,
-    pub nonce: u64,
-    pub ready_to_execute: bool,
+    
+    // Expiry fields
+    pub created_at: i64,
+    pub expires_at: i64,
 }
 
 impl Proposal {
-    // snapshot_voters = voters + contributors
-    // Max voters = 15, max contributors = 15 → max snapshot = 30
     pub const MAX_VOTERS: usize = 15;
     pub const MAX_CONTRIBUTORS: usize = 15;
-    pub const MAX_SNAPSHOT: usize = Self::MAX_VOTERS + Self::MAX_CONTRIBUTORS; // 30
+    pub const MAX_SNAPSHOT: usize = Self::MAX_VOTERS + Self::MAX_CONTRIBUTORS;
+    
+    /// Default expiry: 7 days
+    pub const DEFAULT_EXPIRY: i64 = 7 * 24 * 60 * 60;
 
     pub const SPACE: usize =
         8 +                                // discriminator
@@ -44,16 +39,15 @@ impl Proposal {
         33 +                               // mint Option<Pubkey>
         1 +                                // votes_for
         1 +                                // votes_against
-        4 + Self::MAX_SNAPSHOT +           // voters_voted Vec<u8>  → 1 byte per member (30 max)
-        4 + (32 * Self::MAX_SNAPSHOT) +    // snapshot_voters Vec<Pubkey> → 30 entries max
+        4 + Self::MAX_SNAPSHOT +           // voters_voted Vec<u8>
+        4 + (32 * Self::MAX_SNAPSHOT) +    // snapshot_voters Vec<Pubkey>
         1 +                                // executed
+        1 +                                // cancelled
         1 +                                // bump
-        1 +                                // is_swap_proposal
-        33 +                               // input_mint Option<Pubkey>
-        33 +                               // output_mint Option<Pubkey>
-        9 +                                // min_output_amount Option<u64>
-        3 +                                // slippage_bps Option<u16>
-        8 +                                // nonce
-        1;                                 // ready_to_execute
-        // Total: 1236 bytes (was 741 — only fitted 15 snapshot entries, not 30)
+        8 +                                // created_at
+        8;                                 // expires_at
+        
+    pub fn is_expired(&self, current_time: i64) -> bool {
+        current_time > self.expires_at
+    }
 }

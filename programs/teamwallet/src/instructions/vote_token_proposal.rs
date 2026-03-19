@@ -4,23 +4,25 @@ use crate::errors::TeamWalletError;
 
 pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> Result<()> {
     let proposal = &mut ctx.accounts.token_proposal;
+    
+    let clock = Clock::get()?;
 
-    // Find voter's index in snapshot_voters
+    require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
+
     let voter_index = proposal
         .snapshot_voters
         .iter()
         .position(|k| k == &ctx.accounts.voter.key())
         .ok_or(TeamWalletError::NotAuthorizedToVote)? as u8;
 
-    // Check not already voted using index
     require!(
         !proposal.voters_voted.contains(&voter_index),
         TeamWalletError::AlreadyVoted
-    );
-    
-    require!(
-        !proposal.executed,
-        TeamWalletError::ProposalAlreadyExecuted
     );
     
     if vote_for {
@@ -29,7 +31,6 @@ pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> R
         proposal.votes_against = proposal.votes_against.saturating_add(1);
     }
 
-    // Store index (1 byte) instead of full pubkey (32 bytes)
     proposal.voters_voted.push(voter_index);
 
     msg!("Token proposal vote recorded from: {} (index: {})", ctx.accounts.voter.key(), voter_index);
@@ -38,7 +39,6 @@ pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> R
 
 #[derive(Accounts)]
 pub struct VoteTokenProposal<'info> {
-    // FIXED: Removed unnecessary realloc - TokenProposal::SPACE already accounts for max voters
     #[account(mut)]
     pub token_proposal: Account<'info, TokenProposal>,
     

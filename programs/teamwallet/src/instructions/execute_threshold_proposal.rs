@@ -2,31 +2,29 @@ use anchor_lang::prelude::*;
 use crate::state::{TeamWallet, ThresholdProposal};
 use crate::errors::TeamWalletError;
 
-
 pub fn execute_threshold_proposal(
     ctx: Context<ExecuteThresholdProposal>,
     _nonce: Pubkey,
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.threshold_proposal;
     let team_wallet = &mut ctx.accounts.team_wallet;
+    
+    let clock = Clock::get()?;
 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
-    
-    // FIXED: Check if proposal was cancelled
-    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
 
-    // FIXED: Verify votes meet threshold before execution
-    // Uses the old_threshold (threshold at time of proposal creation)
+    // Verify votes meet threshold
     require!(
         proposal.votes_for >= proposal.old_threshold,
         TeamWalletError::InsufficientVotes
     );
 
-    require!(
-        proposal.new_threshold >= 1,
-        TeamWalletError::InvalidThreshold
-    );
-
+    require!(proposal.new_threshold >= 1, TeamWalletError::InvalidThreshold);
     require!(
         proposal.new_threshold <= team_wallet.voter_count,
         TeamWalletError::InvalidThreshold

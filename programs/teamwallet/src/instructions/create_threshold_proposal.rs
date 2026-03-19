@@ -2,7 +2,6 @@ use anchor_lang::prelude::*;
 use crate::state::{TeamWallet, ThresholdProposal};
 use crate::errors::TeamWalletError;
 
-
 pub fn create_threshold_proposal(
     ctx: Context<CreateThresholdProposal>,
     new_threshold: u8,
@@ -12,17 +11,16 @@ pub fn create_threshold_proposal(
     let proposal = &mut ctx.accounts.threshold_proposal;
     let owner_key = ctx.accounts.owner.key();
 
-    require!(
-        new_threshold >= 1,
-        TeamWalletError::InvalidThreshold
-    );
-
+    require!(new_threshold >= 1, TeamWalletError::InvalidThreshold);
     require!(
         new_threshold <= team_wallet.voter_count,
         TeamWalletError::InvalidThreshold
     );
 
-    // Snapshot all eligible voters (owner + voters list)
+    let clock = Clock::get()?;
+    let created_at = clock.unix_timestamp;
+    let expires_at = created_at + ThresholdProposal::DEFAULT_EXPIRY;
+
     let mut snapshot: Vec<Pubkey> = vec![owner_key];
     for v in &team_wallet.voters {
         if *v != owner_key {
@@ -39,16 +37,17 @@ pub fn create_threshold_proposal(
     proposal.bump = ctx.bumps.threshold_proposal;
     proposal.nonce = _nonce;
     proposal.snapshot_voters = snapshot;
-    // Owner auto-approves on creation
     proposal.voters_voted = vec![owner_key];
     proposal.votes_for = 1;
     proposal.votes_against = 0;
+    proposal.created_at = created_at;
+    proposal.expires_at = expires_at;
 
     msg!(
-        "ThresholdProposal created: {} -> {} / {}",
+        "ThresholdProposal created: {} -> {}, expires at {}",
         team_wallet.vote_threshold,
         new_threshold,
-        team_wallet.voter_count
+        expires_at
     );
 
     Ok(())
@@ -60,7 +59,7 @@ pub struct CreateThresholdProposal<'info> {
     #[account(
         init,
         payer = owner,
-        space = ThresholdProposal::SPACE, // updated SPACE includes voters vecs
+        space = ThresholdProposal::SPACE,
         seeds = [
             b"threshold_proposal",
             team_wallet.key().as_ref(),
@@ -70,9 +69,7 @@ pub struct CreateThresholdProposal<'info> {
     )]
     pub threshold_proposal: Account<'info, ThresholdProposal>,
 
-    #[account(
-        has_one = owner,
-    )]
+    #[account(has_one = owner)]
     pub team_wallet: Account<'info, TeamWallet>,
 
     #[account(mut)]

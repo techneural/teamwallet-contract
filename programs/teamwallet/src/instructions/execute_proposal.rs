@@ -6,12 +6,17 @@ use crate::errors::TeamWalletError;
 pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
+    
+    let clock = Clock::get()?;
 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
     require!(!proposal.is_token_transfer, TeamWalletError::InvalidProposalType);
 
-    // vote_threshold is an absolute count (e.g. 2 means "need 2 votes"),
-    // enforced by set_threshold / initialize_team_wallet (threshold <= voter_count).
     require!(
         proposal.votes_for >= team_wallet.vote_threshold,
         TeamWalletError::InsufficientVotes
@@ -29,11 +34,17 @@ pub fn execute_proposal_sol(ctx: Context<ExecuteProposalSol>) -> Result<()> {
 pub fn execute_proposal_token(ctx: Context<ExecuteProposalToken>) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
+    
+    let clock = Clock::get()?;
    
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
     require!(proposal.is_token_transfer, TeamWalletError::InvalidProposalType);
 
-    // vote_threshold is an absolute count — consistent with upgrade / threshold proposals.
     require!(
         proposal.votes_for >= team_wallet.vote_threshold,
         TeamWalletError::InsufficientVotes
@@ -89,7 +100,7 @@ pub struct ExecuteProposalSol<'info> {
     )]
     pub team_wallet: Account<'info, TeamWallet>,
    
-    /// CHECK: This is the recipient wallet receiving SOL. No data is read or validated.
+    /// CHECK: This is the recipient wallet receiving SOL
     #[account(mut)]
     pub recipient: AccountInfo<'info>,
    

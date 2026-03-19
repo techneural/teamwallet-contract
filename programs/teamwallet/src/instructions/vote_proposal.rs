@@ -4,6 +4,15 @@ use crate::errors::TeamWalletError;
 
 pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
+    
+    let clock = Clock::get()?;
+
+    require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
+    require!(
+        !proposal.is_expired(clock.unix_timestamp),
+        TeamWalletError::ProposalExpired
+    );
 
     let voter_index = proposal
         .snapshot_voters
@@ -14,11 +23,6 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
     require!(
         !proposal.voters_voted.contains(&voter_index),
         TeamWalletError::AlreadyVoted
-    );
-
-    require!(
-        !proposal.executed,
-        TeamWalletError::ProposalAlreadyExecuted
     );
 
     if vote_for {
@@ -35,7 +39,6 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct VoteProposal<'info> {
-    // FIXED: Removed unnecessary realloc - Proposal::SPACE already accounts for max voters
     #[account(mut)]
     pub proposal: Account<'info, Proposal>,
 

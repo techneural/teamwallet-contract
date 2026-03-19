@@ -11,9 +11,6 @@ pub fn create_proposal_sol(
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
 
-    // Validate amount is greater than zero
-    require!(amount > 0, TeamWalletError::InvalidAmount);
-
     let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
     let is_contributor = team_wallet
         .contributors
@@ -24,6 +21,12 @@ pub fn create_proposal_sol(
         is_voter || is_contributor || is_owner,
         TeamWalletError::NotAVoterOrContributor
     );
+    
+    require!(amount > 0, TeamWalletError::InvalidAmount);
+
+    let clock = Clock::get()?;
+    let created_at = clock.unix_timestamp;
+    let expires_at = created_at + Proposal::DEFAULT_EXPIRY;
 
     proposal.team_wallet = team_wallet.key();
     proposal.snapshot_voters = team_wallet.voters.clone();
@@ -45,17 +48,12 @@ pub fn create_proposal_sol(
 
     proposal.votes_against = 0;
     proposal.executed = false;
+    proposal.cancelled = false;
     proposal.bump = ctx.bumps.proposal;
+    proposal.created_at = created_at;
+    proposal.expires_at = expires_at;
 
-    // Initialize swap-related fields to None/false
-    proposal.is_swap_proposal = false;
-    proposal.input_mint = None;
-    proposal.output_mint = None;
-    proposal.min_output_amount = None;
-    proposal.slippage_bps = None;
-    proposal.ready_to_execute = false;
-
-    msg!("SOL proposal created: {} lamports to {}", amount, recipient);
+    msg!("SOL proposal created, expires at {}", expires_at);
 
     Ok(())
 }
@@ -63,8 +61,6 @@ pub fn create_proposal_sol(
 #[derive(Accounts)]
 #[instruction(amount: u64, recipient: Pubkey, random_pubkey: Pubkey)]
 pub struct CreateProposalSol<'info> {
-    // FIXED: Changed from init_if_needed to init
-    // This prevents reusing an existing proposal PDA
     #[account(
         init,
         payer = proposer,
@@ -99,9 +95,6 @@ pub fn create_proposal_token(
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
 
-    // Validate amount is greater than zero
-    require!(amount > 0, TeamWalletError::InvalidAmount);
-
     let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
     let is_contributor = team_wallet
         .contributors
@@ -112,9 +105,14 @@ pub fn create_proposal_token(
         is_voter || is_contributor || is_owner,
         TeamWalletError::NotAVoterOrContributor
     );
+    
+    require!(amount > 0, TeamWalletError::InvalidAmount);
+
+    let clock = Clock::get()?;
+    let created_at = clock.unix_timestamp;
+    let expires_at = created_at + Proposal::DEFAULT_EXPIRY;
 
     proposal.team_wallet = team_wallet.key();
-
     proposal.snapshot_voters = team_wallet.voters.clone();
     proposal.snapshot_voters.extend(team_wallet.contributors.clone());
 
@@ -134,17 +132,12 @@ pub fn create_proposal_token(
 
     proposal.votes_against = 0;
     proposal.executed = false;
+    proposal.cancelled = false;
     proposal.bump = ctx.bumps.proposal;
+    proposal.created_at = created_at;
+    proposal.expires_at = expires_at;
 
-    // Initialize swap-related fields to None/false
-    proposal.is_swap_proposal = false;
-    proposal.input_mint = None;
-    proposal.output_mint = None;
-    proposal.min_output_amount = None;
-    proposal.slippage_bps = None;
-    proposal.ready_to_execute = false;
-
-    msg!("Token proposal created: {} tokens to {}", amount, recipient);
+    msg!("Token proposal created, expires at {}", expires_at);
 
     Ok(())
 }
@@ -152,8 +145,6 @@ pub fn create_proposal_token(
 #[derive(Accounts)]
 #[instruction(amount: u64, recipient: Pubkey, mint: Pubkey, random_pubkey: Pubkey)]
 pub struct CreateProposalToken<'info> {
-    // FIXED: Changed from init_if_needed to init
-    // This prevents reusing an existing proposal PDA
     #[account(
         init,
         payer = proposer,
