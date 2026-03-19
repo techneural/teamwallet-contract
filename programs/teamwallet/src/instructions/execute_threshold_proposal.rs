@@ -11,6 +11,16 @@ pub fn execute_threshold_proposal(
     let team_wallet = &mut ctx.accounts.team_wallet;
 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
+    
+    // FIXED: Check if proposal was cancelled
+    require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyExecuted);
+
+    // FIXED: Verify votes meet threshold before execution
+    // Uses the old_threshold (threshold at time of proposal creation)
+    require!(
+        proposal.votes_for >= proposal.old_threshold,
+        TeamWalletError::InsufficientVotes
+    );
 
     require!(
         proposal.new_threshold >= 1,

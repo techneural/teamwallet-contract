@@ -49,7 +49,7 @@ pub fn create_token_proposal(
         TokenAction::Mint => {
             require!(recipient.is_some(), TeamWalletError::RecipientRequired);
         }
-        TokenAction::FreezAccount | TokenAction::ThawAccount => {
+        TokenAction::FreezeAccount | TokenAction::ThawAccount => {
             require!(recipient.is_some(), TeamWalletError::RecipientRequired);
         }
         TokenAction::SetMintAuthority => {
@@ -131,12 +131,10 @@ pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> 
         TeamWalletError::ProposalAlreadyExecuted
     );
 
-    let votes_needed = ((team_wallet.voter_count as f64)
-        * (team_wallet.vote_threshold as f64 / 100.0))
-        .ceil() as u8;
-
+    // FIXED: Use absolute threshold (same as other proposal types)
+    // vote_threshold is an absolute count (e.g. 2 means "need 2 votes")
     require!(
-        proposal.votes_for >= votes_needed,
+        proposal.votes_for >= team_wallet.vote_threshold,
         TeamWalletError::InsufficientVotes
     );
 
@@ -180,7 +178,7 @@ pub fn execute_token_proposal(ctx: Context<ExecuteTokenProposal>) -> Result<()> 
             msg!("Burned {} tokens", proposal.amount);
         }
 
-        TokenAction::FreezAccount => {
+        TokenAction::FreezeAccount => {
             let cpi_accounts = token_interface::FreezeAccount {
                 account: ctx.accounts.token_account.as_ref().unwrap().to_account_info(),
                 mint: ctx.accounts.mint.to_account_info(),

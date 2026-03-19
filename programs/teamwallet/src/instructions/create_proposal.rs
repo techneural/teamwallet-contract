@@ -11,6 +11,9 @@ pub fn create_proposal_sol(
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
 
+    // Validate amount is greater than zero
+    require!(amount > 0, TeamWalletError::InvalidAmount);
+
     let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
     let is_contributor = team_wallet
         .contributors
@@ -44,14 +47,26 @@ pub fn create_proposal_sol(
     proposal.executed = false;
     proposal.bump = ctx.bumps.proposal;
 
+    // Initialize swap-related fields to None/false
+    proposal.is_swap_proposal = false;
+    proposal.input_mint = None;
+    proposal.output_mint = None;
+    proposal.min_output_amount = None;
+    proposal.slippage_bps = None;
+    proposal.ready_to_execute = false;
+
+    msg!("SOL proposal created: {} lamports to {}", amount, recipient);
+
     Ok(())
 }
 
 #[derive(Accounts)]
 #[instruction(amount: u64, recipient: Pubkey, random_pubkey: Pubkey)]
 pub struct CreateProposalSol<'info> {
+    // FIXED: Changed from init_if_needed to init
+    // This prevents reusing an existing proposal PDA
     #[account(
-        init_if_needed,
+        init,
         payer = proposer,
         space = Proposal::SPACE,
         seeds = [
@@ -83,6 +98,9 @@ pub fn create_proposal_token(
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
+
+    // Validate amount is greater than zero
+    require!(amount > 0, TeamWalletError::InvalidAmount);
 
     let is_voter = team_wallet.voters.contains(&ctx.accounts.proposer.key());
     let is_contributor = team_wallet
@@ -118,14 +136,26 @@ pub fn create_proposal_token(
     proposal.executed = false;
     proposal.bump = ctx.bumps.proposal;
 
+    // Initialize swap-related fields to None/false
+    proposal.is_swap_proposal = false;
+    proposal.input_mint = None;
+    proposal.output_mint = None;
+    proposal.min_output_amount = None;
+    proposal.slippage_bps = None;
+    proposal.ready_to_execute = false;
+
+    msg!("Token proposal created: {} tokens to {}", amount, recipient);
+
     Ok(())
 }
 
 #[derive(Accounts)]
 #[instruction(amount: u64, recipient: Pubkey, mint: Pubkey, random_pubkey: Pubkey)]
 pub struct CreateProposalToken<'info> {
+    // FIXED: Changed from init_if_needed to init
+    // This prevents reusing an existing proposal PDA
     #[account(
-        init_if_needed,
+        init,
         payer = proposer,
         space = Proposal::SPACE,
         seeds = [

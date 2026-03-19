@@ -22,9 +22,9 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
     );
 
     if vote_for {
-        proposal.votes_for += 1;
+        proposal.votes_for = proposal.votes_for.saturating_add(1);
     } else {
-        proposal.votes_against += 1;
+        proposal.votes_against = proposal.votes_against.saturating_add(1);
     }
 
     proposal.voters_voted.push(voter_index);
@@ -35,12 +35,8 @@ pub fn vote_proposal(ctx: Context<VoteProposal>, vote_for: bool) -> Result<()> {
 
 #[derive(Accounts)]
 pub struct VoteProposal<'info> {
-    #[account(
-        mut,
-        realloc = Proposal::SPACE,  
-        realloc::payer = voter,
-        realloc::zero = false,
-    )]
+    // FIXED: Removed unnecessary realloc - Proposal::SPACE already accounts for max voters
+    #[account(mut)]
     pub proposal: Account<'info, Proposal>,
 
     #[account(

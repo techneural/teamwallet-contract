@@ -32,6 +32,14 @@ pub fn initialize_team_wallet(
         TeamWalletError::OwnerInMembersList
     );
 
+    // FIXED: Validate threshold before setting
+    // Total voters = owner + provided voters list
+    let total_voters = (voters.len() as u8) + 1; // +1 for owner
+    require!(
+        vote_threshold >= 1 && vote_threshold <= total_voters,
+        TeamWalletError::InvalidThreshold
+    );
+
     team_wallet.owner = owner_key;
     team_wallet.name = name;
     team_wallet.vote_threshold = vote_threshold;
@@ -46,6 +54,7 @@ pub fn initialize_team_wallet(
     team_wallet.bump = ctx.bumps.team_wallet;
 
     msg!("Team wallet initialized by owner: {}", ctx.accounts.owner.key());
+    msg!("Vote threshold: {} of {} voters", vote_threshold, team_wallet.voter_count);
     msg!("Lookup table: {}", lookup_table);
     Ok(())
 }

@@ -24,9 +24,9 @@ pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> R
     );
     
     if vote_for {
-        proposal.votes_for += 1;
+        proposal.votes_for = proposal.votes_for.saturating_add(1);
     } else {
-        proposal.votes_against += 1;
+        proposal.votes_against = proposal.votes_against.saturating_add(1);
     }
 
     // Store index (1 byte) instead of full pubkey (32 bytes)
@@ -38,12 +38,8 @@ pub fn vote_token_proposal(ctx: Context<VoteTokenProposal>, vote_for: bool) -> R
 
 #[derive(Accounts)]
 pub struct VoteTokenProposal<'info> {
-    #[account(
-        mut,
-        realloc = TokenProposal::SPACE,
-        realloc::payer = voter,
-        realloc::zero = false,
-    )]
+    // FIXED: Removed unnecessary realloc - TokenProposal::SPACE already accounts for max voters
+    #[account(mut)]
     pub token_proposal: Account<'info, TokenProposal>,
     
     #[account(

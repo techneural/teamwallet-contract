@@ -1,4 +1,3 @@
-
 use anchor_lang::prelude::*;
 
 #[error_code]
@@ -6,12 +5,10 @@ pub enum TeamWalletError {
     #[msg("Maximum number of voters reached (15)")]
     MaxVotersReached,
 
-    #[msg("Authority Missing")]
-
+    #[msg("Authority missing")]  // FIXED: Was "Authority Missing" (inconsistent casing)
     FreezeAuthorityMissing,
 
-    #[msg("Minvalid authority type")]
-
+    #[msg("Invalid authority type")]  // FIXED: Was "Minvalid authority type"
     InvalidAuthorityType,
     
     #[msg("Voter already exists")]
@@ -35,7 +32,7 @@ pub enum TeamWalletError {
     #[msg("Insufficient votes to execute proposal")]
     InsufficientVotes,
 
-     #[msg("Invalid upgrade buffer")]
+    #[msg("Invalid upgrade buffer")]
     InvalidUpgradeBuffer,
 
     #[msg("Invalid program data account")]
@@ -86,62 +83,56 @@ pub enum TeamWalletError {
     #[msg("Interest rate is required for this action")]
     InterestRateRequired,
 
-    #[msg ("InvalidRemainingAccounts")]
+    #[msg("Invalid remaining accounts")]  // FIXED: formatting
     InvalidRemainingAccounts,
-  
 
-    #[msg("invalid  route data")]
+    #[msg("Invalid route data")]  // FIXED: Was "invalid  route data" (double space)
     InvalidRouteData,
 
-    #[msg("Invlid proposal data")]
-   
+    #[msg("Invalid proposal data")]  // FIXED: Was "Invlid proposal data"
     InvalidProposalData,
 
     #[msg("Input mint required for swap")]
-
     InputMintRequired,
 
     #[msg("Output mint required for swap")]
-
     OutputMintRequired,
 
     #[msg("Minimum output amount required")]
-
     MinOutputRequired,
 
     #[msg("Invalid minimum output amount")]
-
     InvalidMinOutput,
 
     #[msg("Cannot swap same mint")]
-
     SameMintSwap,
 
     #[msg("Slippage too high")]
-
     SlippageTooHigh,
 
     #[msg("Invalid token account owner")]
-
     InvalidTokenAccountOwner,
 
     #[msg("Insufficient balance")]
-
     InsufficientBalance,
 
     #[msg("Swap failed")]
-
     SwapFailed,
 
     #[msg("Slippage exceeded")]
-
     SlippageExceeded,
 
     #[msg("Invalid amount")]
-
     InvalidAmount,
 
     #[msg("Invalid threshold value")]
-    InvalidThreshold
+    InvalidThreshold,
 
+    // NEW: Added missing error for cancelled proposals
+    #[msg("Proposal has been cancelled")]
+    ProposalAlreadyCancelled,
+
+    // NEW: Added for proposal expiration (future use)
+    #[msg("Proposal has expired")]
+    ProposalExpired,
 }

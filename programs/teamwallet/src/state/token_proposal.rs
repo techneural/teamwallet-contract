@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 pub enum TokenAction {
     Mint,
     Burn,
-    FreezAccount,
+    FreezeAccount,  // FIXED: Was "FreezAccount"
     ThawAccount,
     SetMintAuthority,
     SetFreezeAuthority,
@@ -17,7 +17,7 @@ pub enum TokenAction {
     SetPermanentDelegate,
     UpdateGroupPointer,
     UpdateMemberPointer,
-    Transfer, // ← NEW: send tokens to a friend wallet
+    Transfer,
 }
 
 #[account]
