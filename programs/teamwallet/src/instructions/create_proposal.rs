@@ -6,7 +6,7 @@ pub fn create_proposal_sol(
     ctx: Context<CreateProposalSol>,
     amount: u64,
     recipient: Pubkey,
-    random_pubkey: Pubkey,
+    _random_pubkey: Pubkey,
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;
@@ -94,7 +94,7 @@ pub fn create_proposal_token(
     amount: u64,
     recipient: Pubkey,
     mint: Pubkey,
-    random_pubkey: Pubkey,
+    _random_pubkey: Pubkey,
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &ctx.accounts.team_wallet;

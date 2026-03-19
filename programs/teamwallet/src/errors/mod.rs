@@ -5,10 +5,10 @@ pub enum TeamWalletError {
     #[msg("Maximum number of voters reached (15)")]
     MaxVotersReached,
 
-    #[msg("Authority missing")]  // FIXED: Was "Authority Missing" (inconsistent casing)
+    #[msg("Authority missing")]
     FreezeAuthorityMissing,
 
-    #[msg("Invalid authority type")]  // FIXED: Was "Minvalid authority type"
+    #[msg("Invalid authority type")]
     InvalidAuthorityType,
     
     #[msg("Voter already exists")]
@@ -83,13 +83,13 @@ pub enum TeamWalletError {
     #[msg("Interest rate is required for this action")]
     InterestRateRequired,
 
-    #[msg("Invalid remaining accounts")]  // FIXED: formatting
+    #[msg("Invalid remaining accounts")]
     InvalidRemainingAccounts,
 
-    #[msg("Invalid route data")]  // FIXED: Was "invalid  route data" (double space)
+    #[msg("Invalid route data")]
     InvalidRouteData,
 
-    #[msg("Invalid proposal data")]  // FIXED: Was "Invlid proposal data"
+    #[msg("Invalid proposal data")]
     InvalidProposalData,
 
     #[msg("Input mint required for swap")]
@@ -107,7 +107,7 @@ pub enum TeamWalletError {
     #[msg("Cannot swap same mint")]
     SameMintSwap,
 
-    #[msg("Slippage too high")]
+    #[msg("Slippage too high (max 50%)")]
     SlippageTooHigh,
 
     #[msg("Invalid token account owner")]
@@ -128,11 +128,21 @@ pub enum TeamWalletError {
     #[msg("Invalid threshold value")]
     InvalidThreshold,
 
-    // NEW: Added missing error for cancelled proposals
     #[msg("Proposal has been cancelled")]
     ProposalAlreadyCancelled,
 
-    // NEW: Added for proposal expiration (future use)
     #[msg("Proposal has expired")]
     ProposalExpired,
+
+    #[msg("Proposal has not expired yet")]
+    ProposalNotExpired,
+
+    #[msg("Proposal has not been executed")]
+    ProposalNotExecuted,
+
+    #[msg("Not authorized to cancel")]
+    NotAuthorizedToCancel,
+
+    #[msg("Swap execution window expired")]
+    SwapExecutionWindowExpired,
 }

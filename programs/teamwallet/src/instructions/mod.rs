@@ -4,19 +4,22 @@ pub mod remove_voter;
 pub mod add_contributor;
 pub mod remove_contributor;
 pub mod create_proposal;
-pub mod create_swap_proposal;
 pub mod vote_proposal;
 pub mod execute_proposal;
-pub mod execute_swap_proposal;
 pub mod upgrade_program;
 pub mod delete_program;
 pub mod token_manager;
-pub mod vote_swap_proposal;
 pub mod vote_token_proposal;
 pub mod set_threshold;
 pub mod create_threshold_proposal;
 pub mod vote_threshold_proposal;
 pub mod execute_threshold_proposal;
+
+// Swap Intent
+pub mod create_swap_intent;
+pub mod vote_swap_intent;
+pub mod execute_swap_intent;
+pub mod cancel_swap_intent;
 
 pub use initialize_team_wallet::*;
 pub use add_voter::*;
@@ -24,16 +27,19 @@ pub use remove_voter::*;
 pub use add_contributor::*;
 pub use remove_contributor::*;
 pub use create_proposal::*;
-pub use create_swap_proposal::*;
 pub use vote_proposal::*;
 pub use execute_proposal::*;
-pub use execute_swap_proposal::*;
 pub use upgrade_program::*;
 pub use delete_program::*;
 pub use token_manager::*;
-pub use vote_swap_proposal::*;
 pub use vote_token_proposal::*;
 pub use set_threshold::*;
 pub use create_threshold_proposal::*;
 pub use vote_threshold_proposal::*;
 pub use execute_threshold_proposal::*;
+
+// Swap Intent
+pub use create_swap_intent::*;
+pub use vote_swap_intent::*;
+pub use execute_swap_intent::*;
+pub use cancel_swap_intent::*;

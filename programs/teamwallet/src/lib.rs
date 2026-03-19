@@ -1,7 +1,7 @@
 #![allow(unexpected_cfgs)]
 use anchor_lang::prelude::*;
 
-declare_id!("B94WzqVuEVxRJ3R4Wh5AsaaxnjrcAL3v9zEVQ5uD4M8J");
+declare_id!("jRr8unX8ncDBNiBMfVSUj7D2tUnM7V6199eTiFgJJ7V");
 
 pub mod instructions;
 pub mod state;
@@ -149,33 +149,6 @@ pub mod teamwallet {
         instructions::transfer_mint_authority(ctx)
     }
 
-    pub fn create_swap_proposal(
-        ctx: Context<CreateSwapProposal>,
-        amount_in: u64,
-        input_mint: Pubkey,
-        output_mint: Pubkey,
-        min_output_amount: u64,
-        slippage_bps: u16,
-    ) -> Result<()> {
-        instructions::create_swap_proposal(
-            ctx, amount_in, input_mint, output_mint, min_output_amount, slippage_bps,
-        )
-    }
-
-    pub fn vote_swap_proposal(
-        ctx: Context<VoteSwapProposal>,
-        vote_for: bool,
-    ) -> Result<()> {
-        instructions::vote_swap_proposal(ctx, vote_for)
-    }
-
-    pub fn execute_swap_proposal(
-        ctx: Context<ExecuteSwapProposal>,
-        route_instructions: Vec<Vec<u8>>,
-    ) -> Result<()> {
-        instructions::execute_swap_proposal(ctx, route_instructions)
-    }
-
     pub fn set_threshold(ctx: Context<SetThreshold>, new_threshold: u8) -> Result<()> {
         instructions::set_threshold(ctx, new_threshold)
     }
@@ -200,5 +173,45 @@ pub mod teamwallet {
         nonce: Pubkey,
     ) -> Result<()> {
         instructions::execute_threshold_proposal(ctx, nonce)
+    }
+
+    // ========== Swap Intent (Jupiter Integration) ==========
+
+    pub fn create_swap_intent(
+        ctx: Context<CreateSwapIntent>,
+        input_mint: Pubkey,
+        output_mint: Pubkey,
+        amount_in: u64,
+        min_amount_out: u64,
+        slippage_bps: u16,
+        nonce: Pubkey,
+    ) -> Result<()> {
+        instructions::create_swap_intent(
+            ctx, input_mint, output_mint, amount_in, 
+            min_amount_out, slippage_bps, nonce
+        )
+    }
+
+    pub fn vote_swap_intent(ctx: Context<VoteSwapIntent>, vote_for: bool) -> Result<()> {
+        instructions::vote_swap_intent(ctx, vote_for)
+    }
+
+    pub fn execute_swap_intent<'info>(
+        ctx: Context<'_, '_, '_, 'info, ExecuteSwapIntent<'info>>,
+        swap_data: Vec<u8>,
+    ) -> Result<()> {
+        instructions::execute_swap_intent(ctx, swap_data)
+    }
+
+    pub fn cancel_swap_intent(ctx: Context<CancelSwapIntent>) -> Result<()> {
+        instructions::cancel_swap_intent(ctx)
+    }
+
+    pub fn cancel_expired_swap_intent(ctx: Context<CancelExpiredSwapIntent>) -> Result<()> {
+        instructions::cancel_expired_swap_intent(ctx)
+    }
+
+    pub fn close_swap_intent(ctx: Context<CloseSwapIntent>) -> Result<()> {
+        instructions::close_swap_intent(ctx)
     }
 }

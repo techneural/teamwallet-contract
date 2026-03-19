@@ -9,7 +9,7 @@ use anchor_spl::token_interface::{
     TokenInterface,
 };
 
-use spl_token_metadata_interface::instruction::{update_field, remove_key};
+use spl_token_metadata_interface::instruction::{update_field};
 use spl_token_metadata_interface::state::Field;
 
 use crate::errors::TeamWalletError;
