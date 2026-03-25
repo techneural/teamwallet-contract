@@ -8,7 +8,7 @@ pub fn vote_proposal(
     vote_for: bool,
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
-    let team_wallet = &ctx.accounts.team_wallet;
+    let _team_wallet = &ctx.accounts.team_wallet;
     let voter = &ctx.accounts.voter;
     
     let clock = Clock::get()?;
@@ -43,7 +43,8 @@ pub fn vote_proposal(
     proposal.voters_voted.push(voter_index);
 
     // Check if threshold now reached (for swap execution window)
-    if !proposal.approved && proposal.votes_for >= team_wallet.vote_threshold {
+    // Use snapshot_threshold for consistency
+    if !proposal.approved && proposal.votes_for >= proposal.snapshot_threshold {
         proposal.approved = true;
         proposal.approved_at = clock.unix_timestamp;
         
@@ -52,21 +53,25 @@ pub fn vote_proposal(
         }
     }
 
-    // Auto-cancel check: if remaining voters can't reach threshold
+    // Auto-cancel check: if remaining voters can't reach snapshot_threshold
     let total_voters = proposal.snapshot_voters.len() as u8;
     let votes_cast = proposal.voters_voted.len() as u8;
     let remaining = total_voters.saturating_sub(votes_cast);
     let max_possible = proposal.votes_for.saturating_add(remaining);
     
-    if max_possible < team_wallet.vote_threshold {
+    // Use snapshot_threshold (not current team_wallet.vote_threshold)
+    // This ensures correct auto-cancel even if threshold changed after proposal creation
+    if max_possible < proposal.snapshot_threshold {
         proposal.cancelled = true;
-        msg!("Proposal auto-cancelled: cannot reach threshold");
+        msg!("Proposal auto-cancelled: cannot reach threshold ({} < {})", 
+            max_possible, proposal.snapshot_threshold);
     }
 
-    msg!("Vote recorded: {} (for: {}, against: {})", 
+    msg!("Vote recorded: {} (for: {}, against: {}, threshold: {})", 
         if vote_for { "FOR" } else { "AGAINST" },
         proposal.votes_for,
-        proposal.votes_against
+        proposal.votes_against,
+        proposal.snapshot_threshold
     );
 
     Ok(())

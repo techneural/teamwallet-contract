@@ -73,6 +73,9 @@ pub enum TeamWalletError {
     #[msg("Not authorized to cancel")]
     NotAuthorizedToCancel,
 
+    #[msg("Not authorized to execute (only proposal creator)")]
+    NotAuthorizedToExecute,
+
     #[msg("Invalid proposal type for this operation")]
     InvalidProposalType,
 

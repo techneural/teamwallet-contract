@@ -38,6 +38,10 @@ pub fn create_proposal(
     let mut snapshot = team_wallet.voters.clone();
     snapshot.extend(team_wallet.contributors.clone());
     
+    // Snapshot the threshold at creation time for auto-cancel logic
+    // This ensures correct behavior even if threshold changes later
+    proposal.snapshot_threshold = team_wallet.vote_threshold;
+    
     // Find proposer's index for auto-vote
     let proposer_index = snapshot
         .iter()

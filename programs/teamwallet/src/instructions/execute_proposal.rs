@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::{
     program::invoke_signed,
-    system_instruction,
     bpf_loader_upgradeable,
     instruction::{AccountMeta, Instruction},
 };
@@ -22,13 +21,22 @@ pub fn execute_proposal<'info>(
 ) -> Result<()> {
     let proposal = &mut ctx.accounts.proposal;
     let team_wallet = &mut ctx.accounts.team_wallet;
+    let executor = &ctx.accounts.executor;
     
     let clock = Clock::get()?;
 
     require!(!proposal.executed, TeamWalletError::ProposalAlreadyExecuted);
     require!(!proposal.cancelled, TeamWalletError::ProposalAlreadyCancelled);
     require!(!proposal.is_expired(clock.unix_timestamp), TeamWalletError::ProposalExpired);
-    require!(proposal.votes_for >= team_wallet.vote_threshold, TeamWalletError::InsufficientVotes);
+    
+    // Only the proposal creator can execute
+    require!(
+        executor.key() == proposal.proposer,
+        TeamWalletError::NotAuthorizedToExecute
+    );
+    
+    // Use snapshot_threshold for execution validation (not current threshold)
+    require!(proposal.votes_for >= proposal.snapshot_threshold, TeamWalletError::InsufficientVotes);
 
     if proposal.action.requires_execution_window() {
         require!(proposal.approved, TeamWalletError::SwapNotApproved);

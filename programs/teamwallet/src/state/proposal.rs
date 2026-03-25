@@ -176,6 +176,9 @@ pub struct Proposal {
     /// Snapshot of eligible voters at creation time
     pub snapshot_voters: Vec<Pubkey>,
     
+    /// Snapshot of threshold at creation time (for auto-cancel logic)
+    pub snapshot_threshold: u8,
+    
     // ═══════════════════════════════════════════════════════════════════════
     // STATUS
     // ═══════════════════════════════════════════════════════════════════════
@@ -233,6 +236,7 @@ impl Proposal {
         1 +                                    // votes_against
         4 + Self::MAX_SNAPSHOT +               // voters_voted Vec<u8>
         4 + (32 * Self::MAX_SNAPSHOT) +        // snapshot_voters Vec<Pubkey>
+        1 +                                    // snapshot_threshold
         1 +                                    // executed
         1 +                                    // cancelled
         8 +                                    // created_at
@@ -256,8 +260,8 @@ impl Proposal {
         current_time > self.approved_at + self.execution_window
     }
     
-    /// Check if proposal can be executed
-    pub fn can_execute(&self, current_time: i64, threshold: u8) -> bool {
+    /// Check if proposal can be executed (uses snapshot_threshold)
+    pub fn can_execute(&self, current_time: i64, _threshold: u8) -> bool {
         if self.executed || self.cancelled {
             return false;
         }
@@ -266,7 +270,8 @@ impl Proposal {
             return false;
         }
         
-        if self.votes_for < threshold {
+        // Use snapshot_threshold instead of current threshold
+        if self.votes_for < self.snapshot_threshold {
             return false;
         }
         
