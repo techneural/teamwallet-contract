@@ -33,10 +33,14 @@ pub fn create_proposal(
     proposal.proposer = proposer.key();
     proposal.action = action.clone();
     
-    // Snapshot includes ALL who can vote: voters + contributors
+    // Snapshot includes ALL who can vote: voters + contributors (deduplicated)
     // (owner is already in voters[0])
     let mut snapshot = team_wallet.voters.clone();
-    snapshot.extend(team_wallet.contributors.clone());
+    for c in &team_wallet.contributors {
+        if !snapshot.contains(c) {
+            snapshot.push(*c);
+        }
+    }
     
     // Snapshot the threshold at creation time for auto-cancel logic
     // This ensures correct behavior even if threshold changes later
